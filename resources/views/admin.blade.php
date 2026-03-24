@@ -1,130 +1,154 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ADMIN – Quản lý hồ sơ nhân viên</title>
-<link rel="stylesheet" href="{{ asset('resources/css/style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>@yield('title')</title>
+    <link rel="stylesheet" href="{{ url('css/app.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <style>
+        .dropdown.show {
+            display: block;
+        }
+    </style>
+
 </head>
-<body>
+<body class="font-sans">
+    <!-- Header Bar -->
+    <header class="fixed top-0 left-0 right-0 shadow-sm px-6 py-4 z-20">
 
-<div class="container">
-    <!-- 1. Thanh menu bar chính -->
-    <div class="menu-bar">
-        <div>Tiện ích</div>
-        <div>Công việc</div>
-        <div>Nhân sự</div>
-        <div>Tuyển dụng</div>
-        <div>Đơn từ</div>
-        <div>Yêu cầu</div>
-        <div>Chấm công</div>
-        <div>Đánh giá</div>
-        <div>Tiền lương</div>
-        <div>Tài sản</div>
-        <div>Báo cáo</div>
-        <div>Cấu hình</div>
-        <div>Hệ thống</div>
-    </div>
-
-    <!-- 2. Sidebar danh sách nhân viên -->
-    <div class="sidebar">
-        <select>
-            <option value="">Chọn trạng thái</option>
-            <option>Đang làm</option>
-            <option>Tạm nghỉ</option>
-            <option>Nghỉ việc</option>
-        </select>
-        <input type="text" placeholder="Tìm kiếm theo tên/MNV">
-        <ul class="employee-list">
-            <li onclick="selectEmployee(this)">
-                <img src="https://via.placeholder.com/35" alt="avatar">
+        <div class="flex items-center justify-between">
+            <!-- Left side - Menu toggle and App title -->
+            <div class="flex items-center space-x-4">
+                <!-- Menu Toggle Button -->
+                <button class="menu-toggle p-2 rounded-lg transition-colors" onclick="toggleSidebar()">
+                    <div class="space-y-1">
+                        <div class="menu-toggle-bar w-5 h-0.5"></div>
+                        <div class="menu-toggle-bar w-5 h-0.5"></div>
+                        <div class="menu-toggle-bar w-5 h-0.5"></div>
+                    </div>
+                </button>
+                
                 <div>
-                    <div>Nguyễn Văn A</div>
-                    <small>NV001</small>
-                    <span class="badge dang-lam">Đang làm</span>
+                    <h2 class="header-title">Công ty TNHH THT</h2>
+                    <p class="header-subtitle text-base font-medium" id="pageSubtitle">Trang chủ</p>
                 </div>
-            </li>
-            <li onclick="selectEmployee(this)">
-                <img src="https://via.placeholder.com/35" alt="avatar">
-                <div>
-                    <div>Trần Thị B</div>
-                    <small>NV002</small>
-                    <span class="badge tam-nghi">Tạm nghỉ</span>
-                </div>
-            </li>
-        </ul>
-    </div>
+            </div>
+            
+            <!-- Right side - User -->
+            <div class="user-section flex items-center space-x-4">     
+                <!-- User Account Dropdown -->
+                <div class="relative">
+                    <div class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors" onclick="toggleDropdown()">
+                        <!-- Avatar -->
+                        <div class="avatar w-10 h-10 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                            <p>{{ Auth::user() ? strtoupper(substr(Auth::user()->name, 0, 1)) : 'A' }}</p>
+                        </div>
+                        <!-- User Name -->
+                        <div class="text-right">
+                            <p class="avatar-name text-sm font-bold">{{ Auth::user() ? Auth::user()->name : 'Admin' }}</p>
+                            <p class="avatar-name text-xs font-semibold">{{ Auth::user() ? ucfirst(Auth::user()->role) : 'Admin' }}</p>
+                        </div>
+                        <!-- Dropdown Arrow -->
+                        <svg class="dropdown-arrow w-4 h-4 transition-transform" id="dropdownArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </div>
 
-    <!-- 3. Main chi tiết nhân viên -->
-    <div class="main">
-        <div class="detail-top">
-            <img src="https://via.placeholder.com/150x180" alt="ảnh nhân viên">
-            <div class="detail-form">
-                <div><label>Họ tên</label><input type="text"></div>
-                <div><label>Mã nhân viên</label><input type="text"></div>
-                <div><label>Phòng ban</label><input type="text"></div>
-                <div><label>Chức vụ</label><input type="text"></div>
-                <div><label>CCCD</label><input type="text"></div>
-                <div><label>Ngày sinh</label><input type="date"></div>
-                <div><label>Giới tính</label><input type="text"></div>
-                <div><label>Tình trạng hôn nhân</label><input type="text"></div>
-                <div><label>Quê quán</label><input type="text"></div>
-                <div><label>SĐT</label><input type="text"></div>
-                <div><label>Email</label><input type="email"></div>
-                <div><label>Địa chỉ hiện tại</label><input type="text"></div>
-                <div><label>Ngày làm việc</label><input type="date"></div>
-                <div><label>Trạng thái</label><input type="text" class="badge dang-lam"></div>
-                <div><label>Ảnh chân dung</label><input type="file"></div>
-                <div><label>Dân tộc</label><input type="text"></div>
-                <div><label>Tôn giáo</label><input type="text"></div>
-                <div><label>Quốc tịch</label><input type="text"></div>
-                <div><label>CV</label><button>Xem</button></div>
-                <div><label>Hợp đồng lao động</label><button>Xem</button></div>
-                <div><label>Ghi chú</label><input type="text"></div>
+                    <!-- Dropdown Menu -->
+                    <div class="dropdown absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 hidden" id="userDropdown">
+                        <hr class="my-1 border-gray-100">
+                        <form method="POST" action="{{ route('auth.logout') }}" style="display: inline;">
+                            @csrf
+                            <button type="submit" 
+                                class="dropdown-logout flex items-center w-full px-4 py-2 font-medium text-red-500 hover:bg-gray-100 transition-colors">
+                                <span class="mr-3">🚪</span>
+                                <span>Đăng xuất</span>
+                            </button>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
+    </header>
 
-        <!-- Tabs ngang -->
-        <div class="tabs">
-            <button class="tab-btn active" onclick="openTab(event,'thongtin')">Thông tin chung</button>
-            <button class="tab-btn" onclick="openTab(event,'hopdong')">Hợp đồng lao động</button>
-            <button class="tab-btn" onclick="openTab(event,'kinhnghiem')">Kinh nghiệm</button>
-            <button class="tab-btn" onclick="openTab(event,'bangcap')">Bằng cấp</button>
-            <button class="tab-btn" onclick="openTab(event,'baohiem')">Bảo hiểm</button>
-            <button class="tab-btn" onclick="openTab(event,'giadinh')">Quan hệ gia đình</button>
-            <button class="tab-btn" onclick="openTab(event,'hoso')">Hồ sơ</button>
-            <button class="tab-btn" onclick="openTab(event,'daotao')">Đào tạo</button>
-            <button class="tab-btn" onclick="openTab(event,'nangluc')">Năng lực</button>
-            <button class="tab-btn" onclick="openTab(event,'ketqua')">Kết quả đánh giá</button>
-            <button class="tab-btn" onclick="openTab(event,'lichsu')">Lịch sử điều chuyển</button>
-        </div>
+    <!-- Sidebar -->
+    <div class="sidebar fixed top-16 left-0 w-56 h-[calc(100vh-4rem)] border-r transition-transform duration-300 ease-in-out overflow-y-auto">
 
-        <!-- Nội dung tab -->
-        <div id="thongtin" class="tab-content active"><p>Thông tin chung nhân viên...</p></div>
-        <div id="hopdong" class="tab-content"><p>Hợp đồng lao động...</p></div>
-        <div id="kinhnghiem" class="tab-content"><p>Kinh nghiệm làm việc...</p></div>
-        <div id="bangcap" class="tab-content"><p>Bằng cấp...</p></div>
-        <div id="baohiem" class="tab-content"><p>Bảo hiểm...</p></div>
-        <div id="giadinh" class="tab-content"><p>Quan hệ gia đình...</p></div>
-        <div id="hoso" class="tab-content"><p>Hồ sơ nhân viên...</p></div>
-        <div id="daotao" class="tab-content"><p>Đào tạo nhân viên...</p></div>
-        <div id="nangluc" class="tab-content"><p>Năng lực nhân viên...</p></div>
-        <div id="ketqua" class="tab-content"><p>Kết quả đánh giá...</p></div>
-        <div id="lichsu" class="tab-content"><p>Lịch sử điều chuyển...</p></div>
+        <!-- Menu Navigation -->
+        <nav class="py-10">
+            <a href="/dashboard" class="menu-item px-6 py-4 ">
+                <span class="mr-4 text-lg">📊</span>
+                <span class="text-base">Dashboard</span>
+            </a>
+
+            <a href="/staff" class="menu-item px-6 py-4">
+                <span class="mr-4 text-lg">👥</span>
+                <span class="text-base">Quản lý nhân viên</span>
+            </a>
+
+            <a href="/recruitment" class="menu-item px-6 py-4">
+                <span class="mr-4 text-lg">🏬</span>
+                <span class="text-base">Quản lý tuyển dụng</span>
+            </a>
     </div>
-</div>
+    
+        <!-- Main Content Area -->
+    <main id="mainContent" class="ml-56 w-[calc(100%-14rem)] min-h-screen p-8 pt-24 transition-all">
+        @yield('content')
+    </main>    
+    <script>
+        const routes = {
+            'Dashboard': '/dashboard',
+            'Quản lý nhân viên': '/staff',
+            'Quản lý tuyển dụng': '/recruitment',
+        };
 
-<script>
-function openTab(evt, tabName) {
-    document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-    document.getElementById(tabName).classList.add('active');
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    evt.currentTarget.classList.add('active');
-}
+        // Highlight menu item dựa trên current URL
+        function setActiveMenuItem() {
+            const currentPath = window.location.pathname;
+            const menuItems = document.querySelectorAll('.menu-item');
+            
+            menuItems.forEach(item => {
+                const href = item.getAttribute('href');
+                if (href === currentPath) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+        }
 
-function selectEmployee(el) {
-    alert('Đã chọn: ' + el.querySelector('div div').innerText);
-}
-</script>
-</body>
+        // Set active on page load
+        document.addEventListener('DOMContentLoaded', setActiveMenuItem);
+
+        // Toggle UI
+        function toggleDropdown() {
+            const dropdown = document.getElementById('userDropdown');
+            const arrow = document.getElementById('dropdownArrow');
+            dropdown.classList.toggle('show');
+            arrow.style.transform = dropdown.classList.contains('show') ? 'rotate(180deg)' : '';
+            
+            // Close dropdown when clicking outside
+            if (dropdown.classList.contains('show')) {
+                document.addEventListener('click', function closeDropdown(e) {
+                    if (!e.target.closest('.relative')) {
+                        dropdown.classList.remove('show');
+                        arrow.style.transform = '';
+                        document.removeEventListener('click', closeDropdown);
+                    }
+                });
+            }
+        }
+        
+        function toggleSidebar() {
+            const sidebar = document.querySelector('.sidebar');
+            const main = document.querySelector('#mainContent');
+            const hidden = sidebar.style.transform === 'translateX(-100%)';
+            sidebar.style.transform = hidden ? 'translateX(0)' : 'translateX(-100%)';
+            main.style.marginLeft = hidden ? '16rem' : '0';
+        }
+    </script>
+
 </html>
