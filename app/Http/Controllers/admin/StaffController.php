@@ -85,6 +85,16 @@ class StaffController extends Controller
         $employees = Employee::with('user', 'department')->paginate(15);
         $departments = Department::all();
 
+        // Pre-compute file paths for each employee
+        foreach ($employees as $employee) {
+            $cvPath = $this->resolveEmployeeFilePath($employee, 'cv');
+            $contractPath = $this->resolveEmployeeFilePath($employee, 'contract');
+            
+            $employee->cv_file = $cvPath ? '/storage/' . $cvPath : null;
+            $employee->contract_file = $contractPath ? '/storage/' . $contractPath : null;
+            $employee->avatar_file = $employee->avatar_path ? '/storage/' . $employee->avatar_path : null;
+        }
+
         return view('staff', [
             'employees' => $employees,
             'departments' => $departments,

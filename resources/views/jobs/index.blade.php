@@ -45,7 +45,7 @@
                         <p class="text-gray-700 mb-4">{{ Str::limit($job->description, 200) }}</p>
                         <div class="flex justify-between items-center">
                             <span class="text-sm text-gray-500">Hạn nộp: {{ $job->deadline?->format('d/m/Y') ?? 'N/A' }}</span>
-                            <a href="{{ route('jobs.show', $job->id) }}" class="login-btn px-4 py-2 text-white font-medium rounded text-sm">
+                            <a href="{{ route('jobs.show', $job) }}" class="login-btn px-4 py-2 text-white font-medium rounded text-sm">
                                 Chi tiết
                             </a>
                         </div>

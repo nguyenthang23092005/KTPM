@@ -382,13 +382,16 @@ function selectEmployee(el, userId) {
     // Update file links from pre-computed data
     const cvLink = document.getElementById('cvLink');
     const contractLink = document.getElementById('contractLink');
-    const cvUrl = (emp.cv_path || emp.cv_file) ? (`/staff/${emp.user_id}/file/cv`) : '';
-    const contractUrl = (emp.contract_path || emp.contract_file) ? (`/staff/${emp.user_id}/file/contract`) : '';
+    
+    // Debug: Log employee data
+    console.log('Employee:', emp);
+    console.log('CV file path:', emp.cv_file);
+    console.log('Contract file path:', emp.contract_file);
     
     // Set CV link based on pre-computed cv_file
     if (cvLink) {
-        if (cvUrl) {
-            cvLink.href = cvUrl;
+        if (emp.cv_file) {
+            cvLink.href = emp.cv_file;
             cvLink.textContent = 'Tải CV';
             cvLink.classList.remove('opacity-50', 'cursor-not-allowed');
             cvLink.style.pointerEvents = 'auto';
@@ -404,8 +407,8 @@ function selectEmployee(el, userId) {
     
     // Set Contract link based on pre-computed contract_file
     if (contractLink) {
-        if (contractUrl) {
-            contractLink.href = contractUrl;
+        if (emp.contract_file) {
+            contractLink.href = emp.contract_file;
             contractLink.textContent = 'Tải Hợp đồng';
             contractLink.classList.remove('opacity-50', 'cursor-not-allowed');
             contractLink.style.pointerEvents = 'auto';
