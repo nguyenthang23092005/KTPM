@@ -86,6 +86,9 @@
                 <div class="mb-8">
                     <div class="mb-4 flex items-center justify-between">
                         <h3 class="text-lg font-semibold text-gray-900">Danh Sách Tin Tuyển Dụng</h3>
+                        @if(auth()->check() && auth()->user()->role === 'admin')
+                        <button onclick="addJobPosting()" class="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700">Thêm</button>
+                        @endif
                     </div>
                     <div class="overflow-x-auto">
                         <table id="jobsTable" class="w-full text-sm border">
@@ -239,7 +242,17 @@
                                     <td class="px-4 py-2">{{ $candidate->user?->phone ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->position_applied ?? '-' }}</td>
                                     <td class="px-4 py-2">
-                                        <span class="px-2 py-1 bg-yellow-100 text-yellow-700 rounded">{{ $candidate->status }}</span>
+                                        @php
+                                            $statusColors = [
+                                                'Đang chờ' => 'bg-yellow-100 text-yellow-700',
+                                                'Đã duyệt CV' => 'bg-blue-100 text-blue-700',
+                                                'Phỏng vấn' => 'bg-purple-100 text-purple-700',
+                                                'Đậu' => 'bg-green-100 text-green-700',
+                                                'Rớt' => 'bg-red-100 text-red-700',
+                                            ];
+                                            $colorClass = $statusColors[$candidate->status] ?? 'bg-gray-100 text-gray-700';
+                                        @endphp
+                                        <span class="px-2 py-1 {{ $colorClass }} rounded">{{ $candidate->status }}</span>
                                     </td>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <td class="px-4 py-2 flex gap-2 justify-center text-xs">
@@ -254,11 +267,11 @@
                                             data-job-id="{{ $candidate->job_id }}"
                                             onclick="editCandidateFromButton(this)"
                                             class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                        >Edit</button>
+                                        >Chỉnh sửa</button>
                                         <form method="POST" action="{{ route('recruitment.destroyCandidate', $candidate->user_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa ứng viên?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Del</button>
+                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
                                         </form>
                                     </td>
                                     @endif
@@ -280,14 +293,13 @@
                     <h3 class="text-lg font-semibold text-gray-900">Thêm/Cập nhật Ứng Viên</h3>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Tin tuyển dụng</label>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vị trí ứng tuyển</label>
                             <select id="candidate_job_id" name="job_id" class="w-full p-2 border border-gray-300 rounded">
                                 <option value="">Không gán</option>
                                 @foreach($activeJobPostings as $job)
                                 <option value="{{ $job->job_id }}">{{ $job->title }} ({{ $job->job_id }})</option>
                                 @endforeach
                             </select>
-                            <p class="mt-1 text-xs text-gray-500">Chỉ hiển thị tin ở trạng thái Đang tuyển.</p>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Họ Tên</label>
@@ -300,14 +312,6 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">SĐT</label>
                             <input id="candidate_phone" name="phone" type="text" class="w-full p-2 border border-gray-300 rounded" required>
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Vị trí Ứng Tuyển</label>
-                            <select id="candidate_position" name="position" class="w-full p-2 border border-gray-300 rounded" required>
-                                <option>Lập trình viên</option>
-                                <option>Thiết kế</option>
-                                <option>Marketing</option>
-                            </select>
                         </div>
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
@@ -385,11 +389,11 @@
                                             data-notes="{{ $interview->notes }}"
                                             onclick="editInterviewFromButton(this)"
                                             class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                        >Edit</button>
+                                        >Chỉnh sửa</button>
                                         <form method="POST" action="{{ route('recruitment.destroyInterview', $interview->interview_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa lịch phỏng vấn?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Del</button>
+                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
                                         </form>
                                     </td>
                                     @endif

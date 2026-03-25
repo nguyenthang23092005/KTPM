@@ -237,7 +237,7 @@ class RecruitmentController extends Controller
         ]);
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
-        Candidate::where('user_id', $user->user_id)->firstOrFail();
+        $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
 
         $resultMap = [
             'Đậu' => 'pass',
@@ -245,12 +245,21 @@ class RecruitmentController extends Controller
             'Chờ kết quả' => 'pending',
         ];
 
+        $result = $resultMap[$validated['result']] ?? $validated['result'];
+
         Interview::create([
             'user_id' => $user->user_id,
             'scheduled_at' => $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00',
-            'result' => $resultMap[$validated['result']] ?? $validated['result'],
+            'result' => $result,
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        // Update candidate status based on interview result
+        if ($result === 'pass') {
+            $candidate->update(['status' => 'Đậu']);
+        } elseif ($result === 'fail') {
+            $candidate->update(['status' => 'Rớt']);
+        }
 
         return redirect()->route('recruitment.index')->with('success', 'Thêm lịch phỏng vấn thành công');
     }
@@ -268,7 +277,7 @@ class RecruitmentController extends Controller
         ]);
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
-        Candidate::where('user_id', $user->user_id)->firstOrFail();
+        $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
 
         $resultMap = [
             'Đậu' => 'pass',
@@ -276,12 +285,24 @@ class RecruitmentController extends Controller
             'Chờ kết quả' => 'pending',
         ];
 
+        $result = $resultMap[$validated['result']] ?? $validated['result'];
+
         $interview->update([
             'user_id' => $user->user_id,
             'scheduled_at' => $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00',
-            'result' => $resultMap[$validated['result']] ?? $validated['result'],
+            'result' => $result,
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        // Update candidate status based on interview result
+        if ($result === 'pass') {
+            $candidate->update(['status' => 'Đậu']);
+        } elseif ($result === 'fail') {
+            $candidate->update(['status' => 'Rớt']);
+        } else {
+            // Keep status as is for pending result
+            $candidate->update(['status' => 'Phỏng vấn']);
+        }
 
         return redirect()->route('recruitment.index')->with('success', 'Cập nhật lịch phỏng vấn thành công');
     }
