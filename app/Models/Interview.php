@@ -41,4 +41,14 @@ class Interview extends Model
     {
         return $this->belongsTo(Candidate::class, 'user_id', 'user_id');
     }
+
+    public function job()
+    {
+        return $this->belongsTo(JobPosting::class);
+    }
+
+    public function interviewer()
+    {
+        return $this->belongsTo(Employee::class, 'interviewer_id');
+    }
 }

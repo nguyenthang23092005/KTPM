@@ -41,4 +41,8 @@ class JobPosting extends Model
     {
         return $this->hasMany(Candidate::class, 'job_id', 'job_id');
     }
+    public function getRouteKeyName()
+    {
+        return 'job_id';
+    }
 }

@@ -24,10 +24,10 @@ Route::get('/jobs', function () {
     return view('jobs.index', compact('jobs'));
 })->name('jobs.index');
 
-Route::get('/jobs/{id}', function ($id) {
-    $job = \App\Models\JobPosting::findOrFail($id);
+Route::get('/jobs/{job}', function (\App\Models\JobPosting $job) {
     return view('jobs.show', compact('job'));
 })->name('jobs.show');
+
 
 Route::post('/apply', function () {
     // Job application submission - validated

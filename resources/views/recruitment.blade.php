@@ -252,7 +252,7 @@
                                     <td class="px-4 py-2">{{ $interview->candidate->name }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate->email }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate->phone }}</td>
-                                    <td class="px-4 py-2">{{ $interview->interview_date->format('Y-m-d') }} {{ $interview->interview_time }}</td>
+                                    <td class="px-4 py-2">{{ \Carbon\Carbon::parse($interview->scheduled_at)->format('Y-m-d H:i') }}</td>
                                     <td class="px-4 py-2">
                                         <span class="px-2 py-1 {{ $interview->result === 'Đậu' ? 'bg-green-100 text-green-700' : ($interview->result === 'Rớt' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700') }} rounded">{{ $interview->result }}</span>
                                     </td>

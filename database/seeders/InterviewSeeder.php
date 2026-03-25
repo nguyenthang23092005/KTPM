@@ -17,6 +17,7 @@ class InterviewSeeder extends Seeder
         // Interview cho US_003 (status: interviewed)
         Interview::create([
             'user_id' => 'US_003',
+            'interviewer_id' => 1,
             'scheduled_at' => '2024-01-20 10:00:00',
             'result' => 'pending',
             'notes' => 'Phỏng vấn thứ nhất - vị trí Nhân Viên Nhân Sự',
