@@ -29,7 +29,7 @@ class Department extends Model
     }
 
     protected $fillable = [
-        'department_id', 'name', 'description', 'manager_id'
+        'department_id', 'name', 'description'
     ];
 
     public function employees()
@@ -37,8 +37,4 @@ class Department extends Model
         return $this->hasMany(Employee::class, 'department_id', 'department_id');
     }
 
-    public function manager()
-    {
-        return $this->belongsTo(Employee::class, 'manager_id', 'employee_id');
-    }
 }

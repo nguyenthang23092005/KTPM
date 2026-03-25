@@ -57,4 +57,10 @@ class User extends Authenticatable
     {
         return $this->hasOne(Employee::class, 'user_id', 'user_id');
     }
+
+    // Relationship to Candidate (if user is a candidate)
+    public function candidate()
+    {
+        return $this->hasOne(Candidate::class, 'user_id', 'user_id');
+    }
 }

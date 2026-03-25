@@ -54,11 +54,8 @@ return new class extends Migration
         });
 
         Schema::create('candidates', function (Blueprint $table) {
-            $table->string('candidate_id')->primary();
+            $table->string('user_id')->primary(); // Kế thừa từ users
             $table->string('job_id')->nullable();
-            $table->string('name');
-            $table->string('email');
-            $table->string('phone')->nullable();
             $table->string('position_applied')->nullable();
             $table->text('experience')->nullable();
             $table->text('education')->nullable();
@@ -67,21 +64,19 @@ return new class extends Migration
             $table->date('applied_date')->nullable();
             $table->timestamps();
 
+            $table->foreign('user_id')->references('user_id')->on('users')->cascadeOnDelete();
             $table->foreign('job_id')->references('job_id')->on('job_postings')->nullOnDelete();
         });
 
         Schema::create('interviews', function (Blueprint $table) {
             $table->string('interview_id')->primary();
-            $table->string('candidate_id');
-            $table->string('job_id')->nullable();
+            $table->string('user_id'); // Kế thừa từ candidates/users
             $table->dateTime('scheduled_at')->nullable();
-            $table->string('interviewer')->nullable();
             $table->text('notes')->nullable();
             $table->enum('result', ['pass', 'fail', 'pending'])->default('pending');
             $table->timestamps();
 
-            $table->foreign('candidate_id')->references('candidate_id')->on('candidates')->cascadeOnDelete();
-            $table->foreign('job_id')->references('job_id')->on('job_postings')->nullOnDelete();
+            $table->foreign('user_id')->references('user_id')->on('candidates')->cascadeOnDelete();
         });
     }
 

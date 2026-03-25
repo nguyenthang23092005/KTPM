@@ -29,26 +29,16 @@ class Interview extends Model
     }
 
     protected $fillable = [
-        'interview_id', 'candidate_id', 'job_id', 'scheduled_at',
-        'interviewer', 'result', 'notes'
+        'interview_id', 'user_id', 'scheduled_at', 'result', 'notes'
     ];
 
     protected $casts = [
         'scheduled_at' => 'datetime',
     ];
 
+    // Relationship to Candidate (kế thừa từ Candidate)
     public function candidate()
     {
-        return $this->belongsTo(Candidate::class, 'candidate_id', 'candidate_id');
-    }
-
-    public function job()
-    {
-        return $this->belongsTo(JobPosting::class, 'job_id', 'job_id');
-    }
-
-    public function interviewer()
-    {
-        return $this->belongsTo(Employee::class, 'employee_id', 'employee_id');
+        return $this->belongsTo(Candidate::class, 'user_id', 'user_id');
     }
 }

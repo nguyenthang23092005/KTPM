@@ -12,30 +12,19 @@ class Candidate extends Model
     protected $keyType = 'string';
     public $timestamps = true;
 
-    protected static function boot()
-    {
-        parent::boot();
-        
-        static::creating(function ($candidate) {
-            if (!$candidate->candidate_id) {
-                $lastCandidate = static::orderBy('candidate_id', 'desc')->first();
-                $lastNumber = 0;
-                if ($lastCandidate && preg_match('/CND_(\d+)/', $lastCandidate->candidate_id, $matches)) {
-                    $lastNumber = intval($matches[1]);
-                }
-                $candidate->candidate_id = 'CND_' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-            }
-        });
-    }
-
     protected $fillable = [
-        'user_id', 'job_id', 'name', 'email', 'phone',
-        'position_applied', 'experience', 'education', 'status', 'notes', 'applied_date'
+        'user_id', 'job_id', 'position_applied', 'experience', 'education', 'status', 'notes', 'applied_date'
     ];
 
     protected $casts = [
         'applied_date' => 'date',
     ];
+
+    // Relationship to User
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
 
     public function job()
     {
