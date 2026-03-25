@@ -37,8 +37,8 @@
                 <option>Đang chờ</option>
                 <option>Đã duyệt CV</option>
                 <option>Phỏng vấn</option>
-                <option>Đậu</option>
-                <option>Rớt</option>
+                <option>Đã nhận việc</option>
+                <option>Từ chối</option>
             </select>
             <select id="candidatePositionFilter" class="w-full p-2 border border-gray-300 rounded">
                 <option value="">Vị trí</option>
@@ -264,16 +264,21 @@
                                     <td class="px-4 py-2">{{ $candidate->position_applied ?? '-' }}</td>
                                     <td class="px-4 py-2">
                                         @php
+                                            $displayStatus = match ($candidate->status) {
+                                                'Đậu', 'Nhận việc' => 'Đã nhận việc',
+                                                'Rớt' => 'Từ chối',
+                                                default => $candidate->status,
+                                            };
                                             $statusColors = [
                                                 'Đang chờ' => 'bg-yellow-100 text-yellow-700',
                                                 'Đã duyệt CV' => 'bg-blue-100 text-blue-700',
                                                 'Phỏng vấn' => 'bg-purple-100 text-purple-700',
-                                                'Đậu' => 'bg-green-100 text-green-700',
-                                                'Rớt' => 'bg-red-100 text-red-700',
+                                                'Đã nhận việc' => 'bg-green-100 text-green-700',
+                                                'Từ chối' => 'bg-red-100 text-red-700',
                                             ];
-                                            $colorClass = $statusColors[$candidate->status] ?? 'bg-gray-100 text-gray-700';
+                                            $colorClass = $statusColors[$displayStatus] ?? 'bg-gray-100 text-gray-700';
                                         @endphp
-                                        <span class="px-2 py-1 {{ $colorClass }} rounded">{{ $candidate->status }}</span>
+                                                <span class="px-2 py-1 {{ $colorClass }} rounded">{{ $displayStatus }}</span>
                                     </td>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <td class="px-4 py-2 flex gap-2 justify-center text-xs">
@@ -284,7 +289,7 @@
                                             data-email="{{ $candidate->user?->email }}"
                                             data-phone="{{ $candidate->user?->phone }}"
                                             data-position="{{ $candidate->position_applied }}"
-                                            data-status="{{ $candidate->status }}"
+                                            data-status="{{ $displayStatus }}"
                                             data-job-id="{{ $candidate->job_id }}"
                                             data-cv-url="{{ $cvUrl }}"
                                             data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
@@ -346,7 +351,7 @@
                                 <option>Đang chờ</option>
                                 <option>Đã duyệt CV</option>
                                 <option>Phỏng vấn</option>
-                                <option>Nhận việc</option>
+                                <option>Đã nhận việc</option>
                                 <option>Từ chối</option>
                             </select>
                         </div>
@@ -408,7 +413,7 @@
                                     <td class="px-4 py-2">{{ $interview->scheduled_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                     <td class="px-4 py-2">
                                         <span class="px-2 py-1 {{ $interview->result === 'pass' ? 'bg-green-100 text-green-700' : ($interview->result === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700') }} rounded">
-                                            {{ $interview->result === 'pass' ? 'Đậu' : ($interview->result === 'fail' ? 'Rớt' : 'Chờ kết quả') }}
+                                            {{ $interview->result === 'pass' ? 'Đã nhận việc' : ($interview->result === 'fail' ? 'Từ chối' : 'Chờ kết quả') }}
                                         </span>
                                     </td>
                                     <td class="px-4 py-2 text-gray-600">{{ $interview->notes ?? '-' }}</td>
@@ -422,7 +427,7 @@
                                             data-phone="{{ $interview->candidate?->user?->phone }}"
                                             data-date="{{ $interview->scheduled_at?->format('Y-m-d') }}"
                                             data-time="{{ $interview->scheduled_at?->format('H:i') }}"
-                                            data-result="{{ $interview->result === 'pass' ? 'Đậu' : ($interview->result === 'fail' ? 'Rớt' : 'Chờ kết quả') }}"
+                                            data-result="{{ $interview->result === 'pass' ? 'Đã nhận việc' : ($interview->result === 'fail' ? 'Từ chối' : 'Chờ kết quả') }}"
                                             data-notes="{{ $interview->notes }}"
                                             onclick="editInterviewFromButton(this)"
                                             class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
@@ -484,8 +489,8 @@
                             <label class="block text-sm font-medium text-gray-700 mb-1">Kết Quả</label>
                             <select id="interview_result" name="result" class="w-full p-2 border border-gray-300 rounded" required>
                                 <option>Chờ kết quả</option>
-                                <option>Đậu</option>
-                                <option>Rớt</option>
+                                <option>Đã nhận việc</option>
+                                <option>Từ chối</option>
                             </select>
                         </div>
                         <div class="col-span-2">
@@ -923,7 +928,8 @@ function editCandidate(id) {
 function editCandidateFromButton(button) {
     const form = document.getElementById('candidateForm');
     const statusMap = {
-        'Đậu': 'Nhận việc',
+        'Đậu': 'Đã nhận việc',
+        'Nhận việc': 'Đã nhận việc',
         'Rớt': 'Từ chối',
     };
     form.action = `{{ url('/recruitment/candidate') }}/${button.dataset.userId}`;

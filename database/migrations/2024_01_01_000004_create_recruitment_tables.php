@@ -59,7 +59,7 @@ return new class extends Migration
             $table->string('position_applied')->nullable();
             $table->text('experience')->nullable();
             $table->text('education')->nullable();
-            $table->enum('status', ['Đang chờ', 'Đã duyệt CV', 'Phỏng vấn', 'Đậu', 'Rớt'])->default('Đang chờ');
+            $table->enum('status', ['Đang chờ', 'Đã duyệt CV', 'Phỏng vấn', 'Đã nhận việc', 'Từ chối'])->default('Đang chờ');
             $table->text('notes')->nullable();
             $table->date('applied_date')->nullable();
             $table->timestamps();

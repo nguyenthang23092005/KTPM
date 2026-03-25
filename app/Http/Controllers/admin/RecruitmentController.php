@@ -139,14 +139,15 @@ class RecruitmentController extends Controller
             'email' => 'required|email|max:255',
             'phone' => 'required|string|max:20',
             'position' => 'required|string|max:100',
-            'status' => 'required|in:Đang chờ,Đã duyệt CV,Phỏng vấn,Nhận việc,Từ chối',
+            'status' => 'required|in:Đang chờ,Đã duyệt CV,Phỏng vấn,Đã nhận việc,Nhận việc,Từ chối',
             'cv_path' => 'nullable|file|max:5120',
             'applied_date' => 'nullable|date',
         ]);
 
         $statusMap = [
-            'Nhận việc' => 'Đậu',
-            'Từ chối' => 'Rớt',
+            'Đậu' => 'Đã nhận việc',
+            'Rớt' => 'Từ chối',
+            'Nhận việc' => 'Đã nhận việc',
         ];
         $candidateStatus = $statusMap[$validated['status']] ?? $validated['status'];
 
@@ -204,14 +205,15 @@ class RecruitmentController extends Controller
             'email' => 'required|email',
             'phone' => 'required|string|max:20',
             'position' => 'required|string|max:100',
-            'status' => 'required|in:Đang chờ,Đã duyệt CV,Phỏng vấn,Nhận việc,Từ chối',
+            'status' => 'required|in:Đang chờ,Đã duyệt CV,Phỏng vấn,Đã nhận việc,Nhận việc,Từ chối',
             'cv_path' => 'nullable|file|max:5120',
             'applied_date' => 'nullable|date',
         ]);
 
         $statusMap = [
-            'Nhận việc' => 'Đậu',
-            'Từ chối' => 'Rớt',
+            'Đậu' => 'Đã nhận việc',
+            'Rớt' => 'Từ chối',
+            'Nhận việc' => 'Đã nhận việc',
         ];
         $candidateStatus = $statusMap[$validated['status']] ?? $validated['status'];
 
@@ -255,7 +257,7 @@ class RecruitmentController extends Controller
             'candidate_email' => 'required|email|exists:users,email',
             'interview_date' => 'required|date',
             'interview_time' => 'required|date_format:H:i',
-            'result' => 'required|in:Đậu,Rớt,Chờ kết quả,pass,fail,pending',
+            'result' => 'required|in:Đã nhận việc,Nhận việc,Từ chối,Đậu,Rớt,Chờ kết quả,pass,fail,pending',
             'notes' => 'nullable|string',
         ]);
 
@@ -263,6 +265,9 @@ class RecruitmentController extends Controller
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
 
         $resultMap = [
+            'Đã nhận việc' => 'pass',
+            'Nhận việc' => 'pass',
+            'Từ chối' => 'fail',
             'Đậu' => 'pass',
             'Rớt' => 'fail',
             'Chờ kết quả' => 'pending',
@@ -279,9 +284,9 @@ class RecruitmentController extends Controller
 
         // Update candidate status based on interview result
         if ($result === 'pass') {
-            $candidate->update(['status' => 'Đậu']);
+            $candidate->update(['status' => 'Đã nhận việc']);
         } elseif ($result === 'fail') {
-            $candidate->update(['status' => 'Rớt']);
+            $candidate->update(['status' => 'Từ chối']);
         }
 
         return redirect()->route('recruitment.index')->with('success', 'Thêm lịch phỏng vấn thành công');
@@ -295,7 +300,7 @@ class RecruitmentController extends Controller
             'candidate_email' => 'required|email|exists:users,email',
             'interview_date' => 'required|date',
             'interview_time' => 'required|date_format:H:i',
-            'result' => 'required|in:Đậu,Rớt,Chờ kết quả,pass,fail,pending',
+            'result' => 'required|in:Đã nhận việc,Nhận việc,Từ chối,Đậu,Rớt,Chờ kết quả,pass,fail,pending',
             'notes' => 'nullable|string',
         ]);
 
@@ -303,6 +308,9 @@ class RecruitmentController extends Controller
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
 
         $resultMap = [
+            'Đã nhận việc' => 'pass',
+            'Nhận việc' => 'pass',
+            'Từ chối' => 'fail',
             'Đậu' => 'pass',
             'Rớt' => 'fail',
             'Chờ kết quả' => 'pending',
@@ -319,9 +327,9 @@ class RecruitmentController extends Controller
 
         // Update candidate status based on interview result
         if ($result === 'pass') {
-            $candidate->update(['status' => 'Đậu']);
+            $candidate->update(['status' => 'Đã nhận việc']);
         } elseif ($result === 'fail') {
-            $candidate->update(['status' => 'Rớt']);
+            $candidate->update(['status' => 'Từ chối']);
         } else {
             // Keep status as is for pending result
             $candidate->update(['status' => 'Phỏng vấn']);
