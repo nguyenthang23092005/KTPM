@@ -54,10 +54,11 @@ class AuthController extends Controller
             'address'     => ['required','string','max:255'],
         ]);
 
-        // Quy ước: email @ad.com => admin (AD_), @st.com => staff (ST_), còn lại => user (US_)
+        // Quy ước: @ad.com => admin (AD_), @staff.com => staff (ST_), @gmail.com => user (US_)
         $email   = Str::lower($data['email']);
         $isAdmin = Str::endsWith($email, '@ad.com');
-        $isStaff = Str::endsWith($email, '@st.com');
+        $isStaff = Str::endsWith($email, '@staff.com');
+        $isUser = Str::endsWith($email, '@gmail.com');
         
         if ($isAdmin) {
             $role = 'admin';
@@ -65,7 +66,11 @@ class AuthController extends Controller
         } elseif ($isStaff) {
             $role = 'staff';
             $prefix = 'ST';
+        } elseif ($isUser) {
+            $role = 'user';
+            $prefix = 'US';
         } else {
+            // Domain khác vẫn cho đăng ký như user để không chặn flow hiện tại.
             $role = 'user';
             $prefix = 'US';
         }
@@ -99,7 +104,13 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
-            return redirect()->route('dashboard.index')->with('success','Đăng nhập thành công!');
+
+            $role = Auth::user()->role;
+            if ($role === 'admin' || $role === 'staff') {
+                return redirect()->route('dashboard.index')->with('success','Đăng nhập thành công!');
+            }
+
+            return redirect()->route('jobs.index')->with('success','Đăng nhập thành công!');
         }
 
         return back()->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])->onlyInput('email');

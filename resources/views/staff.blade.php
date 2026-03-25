@@ -382,14 +382,17 @@ function selectEmployee(el, userId) {
     // Update file links from pre-computed data
     const cvLink = document.getElementById('cvLink');
     const contractLink = document.getElementById('contractLink');
+    const cvUrl = (emp.cv_path || emp.cv_file) ? (`/staff/${emp.user_id}/file/cv`) : '';
+    const contractUrl = (emp.contract_path || emp.contract_file) ? (`/staff/${emp.user_id}/file/contract`) : '';
     
     // Set CV link based on pre-computed cv_file
     if (cvLink) {
-        if (emp.cv_file) {
-            cvLink.href = emp.cv_file;
+        if (cvUrl) {
+            cvLink.href = cvUrl;
             cvLink.textContent = 'Tải CV';
             cvLink.classList.remove('opacity-50', 'cursor-not-allowed');
             cvLink.style.pointerEvents = 'auto';
+            cvLink.onclick = null;
         } else {
             cvLink.href = '#';
             cvLink.textContent = 'Chưa có CV';
@@ -401,11 +404,12 @@ function selectEmployee(el, userId) {
     
     // Set Contract link based on pre-computed contract_file
     if (contractLink) {
-        if (emp.contract_file) {
-            contractLink.href = emp.contract_file;
+        if (contractUrl) {
+            contractLink.href = contractUrl;
             contractLink.textContent = 'Tải Hợp đồng';
             contractLink.classList.remove('opacity-50', 'cursor-not-allowed');
             contractLink.style.pointerEvents = 'auto';
+            contractLink.onclick = null;
         } else {
             contractLink.href = '#';
             contractLink.textContent = 'Chưa có Hợp đồng';

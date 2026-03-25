@@ -41,4 +41,23 @@ class Interview extends Model
     {
         return $this->belongsTo(Candidate::class, 'user_id', 'user_id');
     }
+
+    // Resolve job through candidate.user_id -> candidate.job_id -> job_postings.job_id
+    public function job()
+    {
+        return $this->hasOneThrough(
+            JobPosting::class,
+            Candidate::class,
+            'user_id',
+            'job_id',
+            'user_id',
+            'job_id'
+        );
+    }
+
+    // Optional interviewer relation when interviews table contains employee_id
+    public function interviewer()
+    {
+        return $this->belongsTo(Employee::class, 'employee_id', 'user_id');
+    }
 }

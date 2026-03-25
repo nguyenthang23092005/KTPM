@@ -9,6 +9,8 @@ use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StaffController extends Controller
 {
@@ -27,6 +29,55 @@ class StaffController extends Controller
             $next = (int)($maxNum ?? 0) + 1;
             return sprintf('ST_%03d', $next);
         });
+    }
+
+    private function buildUploadFileName(string $prefix, string $employeeName, $file): string
+    {
+        $safeName = Str::of($employeeName)
+            ->ascii()
+            ->replaceMatches('/\s+/', '_')
+            ->replaceMatches('/[^A-Za-z0-9_]/', '')
+            ->trim('_')
+            ->value();
+
+        $safeName = $safeName !== '' ? $safeName : 'NhanVien';
+        $extension = strtolower($file->getClientOriginalExtension());
+
+        return $prefix . '_' . $safeName . '.' . $extension;
+    }
+
+    private function resolveEmployeeFilePath(Employee $employee, string $type): ?string
+    {
+        $pathMap = [
+            'avatar' => $employee->avatar_path,
+            'cv' => $employee->cv_path,
+            'contract' => $employee->contract_path,
+        ];
+
+        $path = $pathMap[$type] ?? null;
+        if ($path && Storage::disk('public')->exists($path)) {
+            return $path;
+        }
+
+        $directory = 'employees/' . $employee->user_id;
+        if (!Storage::disk('public')->exists($directory)) {
+            return null;
+        }
+
+        $files = Storage::disk('public')->files($directory);
+        $patternMap = [
+            'avatar' => '/(^|\\/)Avatar_.*\\.(jpg|jpeg|png|gif|webp)$/i',
+            'cv' => '/(^|\\/)CV_.*\\.(pdf|doc|docx)$/i',
+            'contract' => '/(^|\\/)HD_.*\\.(pdf|doc|docx)$/i',
+        ];
+
+        foreach ($files as $file) {
+            if (preg_match($patternMap[$type], $file)) {
+                return $file;
+            }
+        }
+
+        return null;
     }
 
     public function index()
@@ -56,6 +107,18 @@ class StaffController extends Controller
         ]);
     }
 
+    public function serveFile(string $userId, string $type)
+    {
+        $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
+
+        $path = $this->resolveEmployeeFilePath($employee, $type);
+        if (!$path) {
+            abort(404);
+        }
+
+        return response()->file(Storage::disk('public')->path($path));
+    }
+
     public function create()
     {
         $departments = Department::all();
@@ -67,14 +130,13 @@ class StaffController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'firstName' => 'required|string|max:50',
-            'lastName' => 'required|string|max:50',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|confirmed|min:6',
             'phone' => 'required|string|max:20',
             'birth_date' => 'required|date',
             'gender' => 'required|in:Nam,Nữ,Khác',
-            'address' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
             'department_id' => 'required|exists:departments,department_id',
             'position' => 'required|string|max:100',
             'identity_card' => 'nullable|string|max:20|unique:employees,identity_card',
@@ -88,6 +150,7 @@ class StaffController extends Controller
             'nationality' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
             'avatar_path' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048',
             'cv_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'contract_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
         ]);
@@ -97,14 +160,14 @@ class StaffController extends Controller
         
         $user = User::create([
             'user_id' => $userId,
-            'name' => trim($validated['firstName'] . ' ' . $validated['lastName']),
+            'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
             'role' => 'staff',
             'birth_date' => $validated['birth_date'],
             'gender' => $validated['gender'],
             'phone' => $validated['phone'],
-            'address' => $validated['address'],
+            'address' => $validated['address'] ?? ($validated['current_address'] ?? null),
         ]);
 
         // Handle file uploads
@@ -125,13 +188,23 @@ class StaffController extends Controller
         ];
 
         if ($request->hasFile('avatar_path')) {
-            $employeeData['avatar_path'] = $request->file('avatar_path')->store('employees/' . $userId, 'public');
+            $avatarFile = $request->file('avatar_path');
+            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
+            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+        } elseif ($request->hasFile('avatar')) {
+            $avatarFile = $request->file('avatar');
+            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
+            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
         }
         if ($request->hasFile('cv_path')) {
-            $employeeData['cv_path'] = $request->file('cv_path')->store('employees/' . $userId, 'public');
+            $cvFile = $request->file('cv_path');
+            $cvName = $this->buildUploadFileName('CV', $validated['name'], $cvFile);
+            $employeeData['cv_path'] = $cvFile->storeAs('employees/' . $userId, $cvName, 'public');
         }
         if ($request->hasFile('contract_path')) {
-            $employeeData['contract_path'] = $request->file('contract_path')->store('employees/' . $userId, 'public');
+            $contractFile = $request->file('contract_path');
+            $contractName = $this->buildUploadFileName('HD', $validated['name'], $contractFile);
+            $employeeData['contract_path'] = $contractFile->storeAs('employees/' . $userId, $contractName, 'public');
         }
 
         Employee::create($employeeData);
@@ -157,13 +230,12 @@ class StaffController extends Controller
         $user = $employee->user;
 
         $validated = $request->validate([
-            'firstName' => 'required|string|max:50',
-            'lastName' => 'required|string|max:50',
+            'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email,' . $userId . ',user_id',
             'phone' => 'required|string|max:20',
             'birth_date' => 'required|date',
             'gender' => 'required|in:Nam,Nữ,Khác',
-            'address' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
             'department_id' => 'required|exists:departments,department_id',
             'position' => 'required|string|max:100',
             'identity_card' => 'nullable|string|max:20|unique:employees,identity_card,' . $userId . ',user_id',
@@ -177,18 +249,19 @@ class StaffController extends Controller
             'nationality' => 'nullable|string|max:50',
             'notes' => 'nullable|string',
             'avatar_path' => 'nullable|image|max:2048',
+            'avatar' => 'nullable|image|max:2048',
             'cv_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'contract_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
         ]);
 
         // Update User
         $user->update([
-            'name' => trim($validated['firstName'] . ' ' . $validated['lastName']),
+            'name' => $validated['name'],
             'email' => $validated['email'],
             'birth_date' => $validated['birth_date'],
             'gender' => $validated['gender'],
             'phone' => $validated['phone'],
-            'address' => $validated['address'],
+            'address' => $validated['address'] ?? ($validated['current_address'] ?? $user->address),
         ]);
 
         // Update Employee
@@ -211,13 +284,23 @@ class StaffController extends Controller
         }
 
         if ($request->hasFile('avatar_path')) {
-            $employeeData['avatar_path'] = $request->file('avatar_path')->store('employees/' . $userId, 'public');
+            $avatarFile = $request->file('avatar_path');
+            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
+            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+        } elseif ($request->hasFile('avatar')) {
+            $avatarFile = $request->file('avatar');
+            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
+            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
         }
         if ($request->hasFile('cv_path')) {
-            $employeeData['cv_path'] = $request->file('cv_path')->store('employees/' . $userId, 'public');
+            $cvFile = $request->file('cv_path');
+            $cvName = $this->buildUploadFileName('CV', $validated['name'], $cvFile);
+            $employeeData['cv_path'] = $cvFile->storeAs('employees/' . $userId, $cvName, 'public');
         }
         if ($request->hasFile('contract_path')) {
-            $employeeData['contract_path'] = $request->file('contract_path')->store('employees/' . $userId, 'public');
+            $contractFile = $request->file('contract_path');
+            $contractName = $this->buildUploadFileName('HD', $validated['name'], $contractFile);
+            $employeeData['contract_path'] = $contractFile->storeAs('employees/' . $userId, $contractName, 'public');
         }
 
         $employee->update($employeeData);

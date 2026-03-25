@@ -68,36 +68,69 @@ Route::group(['as' => 'auth.'], function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });
 
-// ===== ADMIN ROUTES (Protected) ====
+// ===== PROTECTED ROUTES ====
 Route::middleware(['auth'])->group(function () {
-    // Dashboard
-    Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
+    // Internal dashboard (admin/staff only)
+    Route::middleware('role:admin,staff')->group(function () {
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
-    // Staff Management
-    Route::resource('staff', StaffController::class);
+        // Staff management overview for admin/staff
+        Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+    });
 
+    // Admin-only staff actions
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/staff/create', [StaffController::class, 'create'])->name('staff.create');
+        Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
+        Route::delete('/staff/{userId}', [StaffController::class, 'destroy'])->name('staff.destroy');
+    });
 
-    // Recruitment Management
+    // Staff detail/edit access: admin all, staff only self
+    Route::middleware('role:admin,staff')->group(function () {
+        Route::get('/staff/{userId}/file/{type}', [StaffController::class, 'serveFile'])
+            ->where('type', 'avatar|cv|contract')
+            ->middleware('staff.access')
+            ->name('staff.file');
+
+        Route::get('/staff/{userId}', [StaffController::class, 'show'])
+            ->middleware('staff.access')
+            ->name('staff.show');
+
+        Route::get('/staff/{userId}/edit', [StaffController::class, 'edit'])
+            ->middleware('staff.access')
+            ->name('staff.edit');
+
+        Route::put('/staff/{userId}', [StaffController::class, 'update'])
+            ->middleware('staff.access')
+            ->name('staff.update');
+    });
+
+    // Recruitment management
     Route::group(['prefix' => 'recruitment', 'as' => 'recruitment.'], function () {
-        Route::get('/', [RecruitmentController::class, 'index'])->name('index');
-        
-        // Job Postings
-        Route::post('/job', [RecruitmentController::class, 'storeJob'])->name('storeJob');
-        Route::post('/job/{jobId}', [RecruitmentController::class, 'updateJob'])->name('updateJob');
-        Route::delete('/job/{jobId}', [RecruitmentController::class, 'destroyJob'])->name('destroyJob');
-        
-        // Candidates
-        Route::post('/candidate', [RecruitmentController::class, 'storeCandidate'])->name('storeCandidate');
-        Route::post('/candidate/{candidateId}', [RecruitmentController::class, 'updateCandidate'])->name('updateCandidate');
-        Route::delete('/candidate/{candidateId}', [RecruitmentController::class, 'destroyCandidate'])->name('destroyCandidate');
-        
-        // Interviews
-        Route::post('/interview', [RecruitmentController::class, 'storeInterview'])->name('storeInterview');
-        Route::post('/interview/{interviewId}', [RecruitmentController::class, 'updateInterview'])->name('updateInterview');
-        Route::delete('/interview/{interviewId}', [RecruitmentController::class, 'destroyInterview'])->name('destroyInterview');
-        
-        // Submit Application (public)
-        Route::post('/apply', [RecruitmentController::class, 'submitApplication'])->name('submitApplication');
+        // Admin and staff can view recruitment dashboard
+        Route::get('/', [RecruitmentController::class, 'index'])
+            ->middleware('role:admin,staff')
+            ->name('index');
+
+        // Admin-only recruitment mutations
+        Route::middleware('role:admin')->group(function () {
+            // Job Postings
+            Route::post('/job', [RecruitmentController::class, 'storeJob'])->name('storeJob');
+            Route::post('/job/{jobId}', [RecruitmentController::class, 'updateJob'])->name('updateJob');
+            Route::delete('/job/{jobId}', [RecruitmentController::class, 'destroyJob'])->name('destroyJob');
+
+            // Candidates
+            Route::post('/candidate', [RecruitmentController::class, 'storeCandidate'])->name('storeCandidate');
+            Route::post('/candidate/{candidateId}', [RecruitmentController::class, 'updateCandidate'])->name('updateCandidate');
+            Route::delete('/candidate/{candidateId}', [RecruitmentController::class, 'destroyCandidate'])->name('destroyCandidate');
+
+            // Interviews
+            Route::post('/interview', [RecruitmentController::class, 'storeInterview'])->name('storeInterview');
+            Route::post('/interview/{interviewId}', [RecruitmentController::class, 'updateInterview'])->name('updateInterview');
+            Route::delete('/interview/{interviewId}', [RecruitmentController::class, 'destroyInterview'])->name('destroyInterview');
+
+            Route::post('/apply', [RecruitmentController::class, 'submitApplication'])->name('submitApplication');
+        });
     });
 });
 
