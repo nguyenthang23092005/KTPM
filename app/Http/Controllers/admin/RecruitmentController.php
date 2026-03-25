@@ -18,26 +18,32 @@ class RecruitmentController extends Controller
 {
     public function index()
     {
-        $jobPostings = JobPosting::paginate(10);
+        $jobPostings = JobPosting::orderByDesc('updated_at')
+            ->orderByDesc('job_id')
+            ->paginate(10);
         $activeJobPostings = JobPosting::where('status', 'active')->orderBy('title')->get();
         $candidates = Candidate::with(['user', 'job'])
-            ->where(function ($query) {
-                $query->whereNull('job_id')
-                    ->orWhereHas('job', function ($jobQuery) {
-                        $jobQuery->where('status', 'active');
-                    });
-            })
+            ->orderByDesc('updated_at')
             ->paginate(10);
-        $interviews = Interview::with(['candidate', 'job', 'interviewer'])->paginate(10);
+        $interviews = Interview::with(['candidate', 'job', 'interviewer'])
+            ->orderByDesc('updated_at')
+            ->paginate(10);
         $interviewCandidates = Candidate::with('user')
             ->where('status', 'Phỏng vấn')
             ->get();
+        $candidatePositions = Candidate::query()
+            ->whereNotNull('position_applied')
+            ->where('position_applied', '!=', '')
+            ->distinct()
+            ->orderBy('position_applied')
+            ->pluck('position_applied');
         $employees = Employee::where('status', 'Đang làm')->get();
 
         return view('recruitment', [
             'jobPostings' => $jobPostings,
             'activeJobPostings' => $activeJobPostings,
             'candidates' => $candidates,
+            'candidatePositions' => $candidatePositions,
             'interviews' => $interviews,
             'interviewCandidates' => $interviewCandidates,
             'employees' => $employees,
@@ -54,7 +60,7 @@ class RecruitmentController extends Controller
             'quantity' => 'required|integer',
             'description' => 'required|string',
             'requirements' => 'required|string',
-            'deadline' => 'required|date|after_or_equal:today',
+            'deadline' => 'required|date',
             'status' => 'required|in:active,closed,filled,Đang tuyển,Đã đóng,Đã tuyển đủ',
         ]);
 
@@ -75,13 +81,13 @@ class RecruitmentController extends Controller
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
 
         $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'salary_min' => 'required|integer|min:0',
-            'salary_max' => 'required|integer|gte:salary_min|min:0',
-            'quantity' => 'required|integer',
-            'description' => 'required|string',
-            'requirements' => 'required|string',
-            'deadline' => 'required|date|after_or_equal:today',
+            'title' => 'sometimes|required|string|max:255',
+            'salary_min' => 'sometimes|required|integer|min:0',
+            'salary_max' => 'sometimes|required|integer|min:0',
+            'quantity' => 'sometimes|required|integer',
+            'description' => 'sometimes|required|string',
+            'requirements' => 'sometimes|required|string',
+            'deadline' => 'sometimes|required|date',
             'status' => 'required|in:active,closed,filled,Đang tuyển,Đã đóng,Đã tuyển đủ',
         ]);
 
@@ -90,9 +96,25 @@ class RecruitmentController extends Controller
             'Đã đóng' => 'closed',
             'Đã tuyển đủ' => 'filled',
         ];
-        $validated['status'] = $statusMap[$validated['status']] ?? $validated['status'];
+        $salaryMin = $validated['salary_min'] ?? $job->salary_min;
+        $salaryMax = $validated['salary_max'] ?? $job->salary_max;
 
-        $job->update($validated);
+        if ($salaryMax < $salaryMin) {
+            return back()->withErrors([
+                'salary_max' => 'Mức lương đến phải lớn hơn hoặc bằng mức lương từ.',
+            ])->withInput();
+        }
+
+        $job->update([
+            'title' => $validated['title'] ?? $job->title,
+            'salary_min' => $salaryMin,
+            'salary_max' => $salaryMax,
+            'quantity' => $validated['quantity'] ?? $job->quantity,
+            'description' => $validated['description'] ?? $job->description,
+            'requirements' => $validated['requirements'] ?? $job->requirements,
+            'deadline' => $validated['deadline'] ?? $job->deadline,
+            'status' => $statusMap[$validated['status']] ?? $validated['status'],
+        ]);
 
         return redirect()->route('recruitment.index')->with('success', 'Cập nhật tin tuyển dụng thành công');
     }

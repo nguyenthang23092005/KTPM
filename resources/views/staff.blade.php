@@ -46,7 +46,7 @@
             @forelse($employees as $employee)
             <li onclick="selectEmployee(this, '{{ $employee->user_id }}')" class="p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 rounded">
                 <div class="flex items-center gap-3">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="{{ $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : '' }}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="{{ $employee->avatar_file ?? '' }}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb">
                     <div class="flex-1">
                         <div class="font-semibold text-gray-800">{{ $employee->user->name }}</div>
                         <small class="text-gray-500">{{ $employee->user_id }}</small>
@@ -71,12 +71,12 @@
                     <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
                     <button type="button" id="deleteBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors hidden">Xóa</button>
                     @elseif(auth()->check() && auth()->user()->role === 'staff')
-                    <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
+                    <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded">Chỉ xem</span>
                     @endif
                 </div>
             </div>
             <div class="flex gap-6">
-                <img id="empAvatar" src="{{ isset($employees) && count($employees) > 0 ? ($employees[0]->avatar_path ? asset('storage/' . $employees[0]->avatar_path) : 'https://via.placeholder.com/150x180') : 'https://via.placeholder.com/150x180' }}" alt="ảnh nhân viên" class="w-32 h-44 border border-gray-300 rounded">
+                <img id="empAvatar" src="{{ isset($employees) && count($employees) > 0 ? ($employees[0]->avatar_file ?: 'https://via.placeholder.com/150x180') : 'https://via.placeholder.com/150x180' }}" alt="ảnh nhân viên" class="w-32 h-44 border border-gray-300 rounded">
                 <form id="employeeForm" method="POST" action="" enctype="multipart/form-data" class="flex-1 grid grid-cols-3 gap-4">
                     @csrf
                     <input type="hidden" id="employeeId" name="user_id" value="">
@@ -225,7 +225,7 @@ function filterAndSortEmployees() {
     container.innerHTML = filtered.map(emp => `
         <li onclick="selectEmployee(this, '${emp.user_id}')" class="p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 rounded">
             <div class="flex items-center gap-3">
-                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="${emp.avatar_path ? '/storage/' + emp.avatar_path : ''}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 35 35%22%3E%3Ccircle cx=%2217.5%22 cy=%2217.5%22 r=%2217.5%22 fill=%22%23e5e7eb%22/%3E%3C/svg%3E'">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="${emp.avatar_file || ''}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 35 35%22%3E%3Ccircle cx=%2217.5%22 cy=%2217.5%22 r=%2217.5%22 fill=%22%23e5e7eb%22/%3E%3C/svg%3E'">
                 <div class="flex-1">
                     <div class="font-semibold text-gray-800">${emp.user?.name || ''}</div>
                     <small class="text-gray-500">${emp.user_id}</small>
@@ -363,8 +363,8 @@ function selectEmployee(el, userId) {
     
     // Update avatar
     const avatarEl = document.getElementById('empAvatar');
-    if (emp.avatar_path && avatarEl) {
-        avatarEl.src = '/storage/' + emp.avatar_path;
+    if (emp.avatar_file && avatarEl) {
+        avatarEl.src = emp.avatar_file;
     } else if (avatarEl) {
         avatarEl.src = 'https://via.placeholder.com/150x180';
     }

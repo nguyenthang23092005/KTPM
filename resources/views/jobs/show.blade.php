@@ -72,7 +72,7 @@
             </div>
 
             <!-- Apply Form -->
-            <div class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
+            <div id="apply-section" class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
                 <h2 class="text-xl font-bold mb-4">Nộp Hồ Sơ</h2>
                 @if(session('success'))
                     <div class="mb-4 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
@@ -86,9 +86,25 @@
                             >Mở CV vừa tải lên ({{ session('uploaded_cv_name') }})</a>
                         @endif
                     </div>
+                @elseif(!empty($existingApplication))
+                    <div class="mb-4 rounded border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                        <p>Bạn đã nộp hồ sơ cho vị trí này.</p>
+                        <p class="mt-1">Trạng thái hiện tại: <strong>{{ $existingApplication['status'] ?? 'Đang chờ' }}</strong></p>
+                        @if(!empty($existingApplication['applied_date']))
+                            <p class="mt-1">Ngày nộp: {{ \Carbon\Carbon::parse($existingApplication['applied_date'])->format('d/m/Y') }}</p>
+                        @endif
+                        @if(!empty($existingApplication['cv_url']))
+                            <a
+                                href="{{ $existingApplication['cv_url'] }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="mt-2 inline-block font-semibold text-blue-900 underline"
+                            >Mở CV đã nộp ({{ $existingApplication['cv_name'] }})</a>
+                        @endif
+                    </div>
                 @endif
                 @auth
-                    <form method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
+                    <form id="applyForm" method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
                         @csrf
                         <input type="hidden" name="job_id" value="{{ $job->job_id }}">
                         
@@ -104,7 +120,7 @@
                         
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
-                            <input type="tel" name="phone" value="{{ Auth::user()->phone ?? '' }}" class="w-full p-2 border border-gray-300 rounded" required>
+                            <input type="tel" name="phone" value="{{ old('phone', Auth::user()->phone ?? '') }}" class="w-full p-2 border border-gray-300 rounded" required>
                         </div>
                         
                         <div>
@@ -132,5 +148,29 @@
             </a>
         </div>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const shouldFocusApplySection =
+                window.location.hash === '#apply-section' ||
+                sessionStorage.getItem('focusApplySection') === '1' ||
+                {{ $errors->any() ? 'true' : 'false' }};
+
+            if (shouldFocusApplySection) {
+                const applySection = document.getElementById('apply-section');
+                if (applySection) {
+                    applySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+                sessionStorage.removeItem('focusApplySection');
+            }
+
+            const applyForm = document.getElementById('applyForm');
+            if (applyForm) {
+                applyForm.addEventListener('submit', function () {
+                    sessionStorage.setItem('focusApplySection', '1');
+                });
+            }
+        });
+    </script>
 </body>
 </html>

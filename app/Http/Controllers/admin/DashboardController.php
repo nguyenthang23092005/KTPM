@@ -23,9 +23,9 @@ class DashboardController extends Controller
 
         // Thống kê tuyển dụng
         $totalApplications = Candidate::count();
-        $totalInterviews = Interview::count();
-        $hiredCandidates = Candidate::where('status', 'Nhận việc')->count();
-        $rejectedCandidates = Candidate::where('status', 'Từ chối')->count();
+        $totalInterviews = Candidate::where('status', 'Phỏng vấn')->count();
+        $hiredCandidates = Candidate::whereIn('status', ['Đậu', 'Nhận việc', 'Đã nhận việc'])->count();
+        $rejectedCandidates = Candidate::whereIn('status', ['Rớt', 'Từ chối'])->count();
 
         // Thống kê theo phòng ban
         $departmentStats = Department::withCount('employees')

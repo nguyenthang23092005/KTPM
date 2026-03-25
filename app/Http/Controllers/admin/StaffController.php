@@ -46,6 +46,33 @@ class StaffController extends Controller
         return $prefix . '_' . $safeName . '.' . $extension;
     }
 
+    private function storeEmployeeDocument(
+        string $userId,
+        string $employeeName,
+        $file,
+        string $prefix,
+        ?string $existingPath = null
+    ): string {
+        $directory = 'employees/' . $userId;
+        $disk = Storage::disk('public');
+
+        // Keep one document per type to avoid stale files and UI ambiguity.
+        foreach ($disk->files($directory) as $path) {
+            if (Str::startsWith(basename($path), $prefix . '_')) {
+                $disk->delete($path);
+            }
+        }
+
+        $fileName = $this->buildUploadFileName($prefix, $employeeName, $file);
+        $newPath = $file->storeAs($directory, $fileName, 'public');
+
+        if ($existingPath && $existingPath !== $newPath && $disk->exists($existingPath)) {
+            $disk->delete($existingPath);
+        }
+
+        return $newPath;
+    }
+
     private function resolveEmployeeFilePath(Employee $employee, string $type): ?string
     {
         $pathMap = [
@@ -66,9 +93,9 @@ class StaffController extends Controller
 
         $files = Storage::disk('public')->files($directory);
         $patternMap = [
-            'avatar' => '/(^|\\/)Avatar_.*\\.(jpg|jpeg|png|gif|webp)$/i',
-            'cv' => '/(^|\\/)CV_.*\\.(pdf|doc|docx)$/i',
-            'contract' => '/(^|\\/)HD_.*\\.(pdf|doc|docx)$/i',
+            'avatar' => '/(^|\\/)(Avt|Avatar)_.*\\.(jpg|jpeg|png|gif|webp)$/i',
+            'cv' => '/(^|\\/)(Cv|CV)_.*\\.(pdf|doc|docx)$/i',
+            'contract' => '/(^|\\/)(Ct|HD)_.*\\.(pdf|doc|docx)$/i',
         ];
 
         foreach ($files as $file) {
@@ -89,10 +116,17 @@ class StaffController extends Controller
         foreach ($employees as $employee) {
             $cvPath = $this->resolveEmployeeFilePath($employee, 'cv');
             $contractPath = $this->resolveEmployeeFilePath($employee, 'contract');
-            
-            $employee->cv_file = $cvPath ? '/storage/' . $cvPath : null;
-            $employee->contract_file = $contractPath ? '/storage/' . $contractPath : null;
-            $employee->avatar_file = $employee->avatar_path ? '/storage/' . $employee->avatar_path : null;
+            $avatarPath = $this->resolveEmployeeFilePath($employee, 'avatar');
+
+            $employee->cv_file = $cvPath
+                ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'cv'])
+                : null;
+            $employee->contract_file = $contractPath
+                ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'contract'])
+                : null;
+            $employee->avatar_file = $avatarPath
+                ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'avatar'])
+                : null;
         }
 
         return view('staff', [
@@ -199,22 +233,18 @@ class StaffController extends Controller
 
         if ($request->hasFile('avatar_path')) {
             $avatarFile = $request->file('avatar_path');
-            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
-            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+            $employeeData['avatar_path'] = $this->storeEmployeeDocument($userId, $validated['name'], $avatarFile, 'Avt');
         } elseif ($request->hasFile('avatar')) {
             $avatarFile = $request->file('avatar');
-            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
-            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+            $employeeData['avatar_path'] = $this->storeEmployeeDocument($userId, $validated['name'], $avatarFile, 'Avt');
         }
         if ($request->hasFile('cv_path')) {
             $cvFile = $request->file('cv_path');
-            $cvName = $this->buildUploadFileName('CV', $validated['name'], $cvFile);
-            $employeeData['cv_path'] = $cvFile->storeAs('employees/' . $userId, $cvName, 'public');
+            $employeeData['cv_path'] = $this->storeEmployeeDocument($userId, $validated['name'], $cvFile, 'Cv');
         }
         if ($request->hasFile('contract_path')) {
             $contractFile = $request->file('contract_path');
-            $contractName = $this->buildUploadFileName('HD', $validated['name'], $contractFile);
-            $employeeData['contract_path'] = $contractFile->storeAs('employees/' . $userId, $contractName, 'public');
+            $employeeData['contract_path'] = $this->storeEmployeeDocument($userId, $validated['name'], $contractFile, 'Ct');
         }
 
         Employee::create($employeeData);
@@ -295,22 +325,42 @@ class StaffController extends Controller
 
         if ($request->hasFile('avatar_path')) {
             $avatarFile = $request->file('avatar_path');
-            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
-            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+            $employeeData['avatar_path'] = $this->storeEmployeeDocument(
+                $userId,
+                $validated['name'],
+                $avatarFile,
+                'Avt',
+                $employee->avatar_path
+            );
         } elseif ($request->hasFile('avatar')) {
             $avatarFile = $request->file('avatar');
-            $avatarName = $this->buildUploadFileName('Avatar', $validated['name'], $avatarFile);
-            $employeeData['avatar_path'] = $avatarFile->storeAs('employees/' . $userId, $avatarName, 'public');
+            $employeeData['avatar_path'] = $this->storeEmployeeDocument(
+                $userId,
+                $validated['name'],
+                $avatarFile,
+                'Avt',
+                $employee->avatar_path
+            );
         }
         if ($request->hasFile('cv_path')) {
             $cvFile = $request->file('cv_path');
-            $cvName = $this->buildUploadFileName('CV', $validated['name'], $cvFile);
-            $employeeData['cv_path'] = $cvFile->storeAs('employees/' . $userId, $cvName, 'public');
+            $employeeData['cv_path'] = $this->storeEmployeeDocument(
+                $userId,
+                $validated['name'],
+                $cvFile,
+                'Cv',
+                $employee->cv_path
+            );
         }
         if ($request->hasFile('contract_path')) {
             $contractFile = $request->file('contract_path');
-            $contractName = $this->buildUploadFileName('HD', $validated['name'], $contractFile);
-            $employeeData['contract_path'] = $contractFile->storeAs('employees/' . $userId, $contractName, 'public');
+            $employeeData['contract_path'] = $this->storeEmployeeDocument(
+                $userId,
+                $validated['name'],
+                $contractFile,
+                'Ct',
+                $employee->contract_path
+            );
         }
 
         $employee->update($employeeData);

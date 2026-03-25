@@ -42,9 +42,9 @@
             </select>
             <select id="candidatePositionFilter" class="w-full p-2 border border-gray-300 rounded">
                 <option value="">Vị trí</option>
-                <option>Lập trình viên</option>
-                <option>Thiết kế</option>
-                <option>Marketing</option>
+                @foreach(($candidatePositions ?? collect()) as $position)
+                <option>{{ $position }}</option>
+                @endforeach
             </select>
         </div>
 
@@ -70,6 +70,17 @@
             Đang đăng nhập: <span class="font-semibold">{{ auth()->user()->email }}</span>
             - Vai trò: <span class="font-semibold uppercase">{{ auth()->user()->role }}</span>
         </div>
+        @endif
+
+        @if(session('success') || $errors->any())
+        <div
+            id="flashToast"
+            data-message="{{ session('success') ?? $errors->first() }}"
+            data-type="{{ session('success') ? 'success' : 'error' }}"
+            class="fixed right-6 top-6 z-50 hidden max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg"
+            role="status"
+            aria-live="polite"
+        ></div>
         @endif
 
         <!-- Tabs -->
@@ -148,6 +159,9 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+                    <div class="mt-4">
+                        {{ $jobPostings->links() }}
                     </div>
                 </div>
 
@@ -502,6 +516,48 @@ const tabFilterMap = {
 };
 const recruitmentMainContent = document.getElementById('recruitmentMainContent');
 
+function showToast(message, type = 'info', timeout = 2200) {
+    if (!message) {
+        return;
+    }
+
+    let toast = document.getElementById('runtimeToast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'runtimeToast';
+        toast.className = 'fixed right-6 top-6 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg';
+        toast.setAttribute('role', 'status');
+        toast.setAttribute('aria-live', 'polite');
+        document.body.appendChild(toast);
+    }
+
+    const typeClasses = {
+        success: 'border-green-200 bg-green-50 text-green-800',
+        error: 'border-red-200 bg-red-50 text-red-800',
+        info: 'border-blue-200 bg-blue-50 text-blue-800',
+    };
+
+    toast.className = `fixed right-6 top-6 z-50 max-w-sm rounded-lg border px-4 py-3 text-sm shadow-lg ${typeClasses[type] || typeClasses.info}`;
+    toast.textContent = message;
+    toast.classList.remove('hidden');
+
+    window.clearTimeout(toast._hideTimer);
+    toast._hideTimer = window.setTimeout(() => {
+        toast.classList.add('hidden');
+    }, timeout);
+}
+
+function bindSubmitLoadingToast(formId) {
+    const form = document.getElementById(formId);
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener('submit', () => {
+        showToast('Đang lưu dữ liệu...', 'info', 1500);
+    });
+}
+
 function getCurrentTabName() {
     return document.querySelector('.tab-content:not(.hidden)')?.id ?? 'jobs';
 }
@@ -575,6 +631,16 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem(TAB_STORAGE_KEY, targetTab);
     requestAnimationFrame(() => restoreScrollPosition(targetTab));
     initRecruitmentFilters();
+
+    const flashToast = document.getElementById('flashToast');
+    if (flashToast) {
+        showToast(flashToast.dataset.message || '', flashToast.dataset.type || 'info');
+        flashToast.remove();
+    }
+
+    bindSubmitLoadingToast('jobForm');
+    bindSubmitLoadingToast('candidateForm');
+    bindSubmitLoadingToast('interviewForm');
 });
 
 if (recruitmentMainContent) {
@@ -764,6 +830,7 @@ function initRecruitmentFilters() {
 // Job Posting actions
 function addJobPosting() {
     const form = document.getElementById('jobForm');
+    const deadlineInput = document.getElementById('job_deadline');
     form.action = form.dataset.storeAction;
     document.getElementById('job_id').value = '';
     document.getElementById('job_title').value = '';
@@ -771,6 +838,7 @@ function addJobPosting() {
     document.getElementById('job_salary_max').value = '';
     document.getElementById('job_quantity').value = '';
     document.getElementById('job_deadline').value = '';
+    deadlineInput.min = "{{ now()->toDateString() }}";
     document.getElementById('job_description').value = '';
     document.getElementById('job_requirements').value = '';
     document.getElementById('job_status').value = 'active';
@@ -780,6 +848,7 @@ function addJobPosting() {
 
 function editJobPosting(job) {
     const form = document.getElementById('jobForm');
+    const deadlineInput = document.getElementById('job_deadline');
     form.action = form.dataset.updateActionTemplate.replace('__JOB_ID__', job.job_id);
     document.getElementById('job_id').value = job.job_id ?? '';
     document.getElementById('job_title').value = job.title ?? '';
@@ -787,6 +856,7 @@ function editJobPosting(job) {
     document.getElementById('job_salary_max').value = job.salary_max ?? '';
     document.getElementById('job_quantity').value = job.quantity ?? '';
     document.getElementById('job_deadline').value = job.deadline ?? '';
+    deadlineInput.removeAttribute('min');
     document.getElementById('job_description').value = job.description ?? '';
     document.getElementById('job_requirements').value = job.requirements ?? '';
     document.getElementById('job_status').value = job.status ?? 'active';

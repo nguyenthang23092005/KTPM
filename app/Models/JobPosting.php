@@ -18,12 +18,17 @@ class JobPosting extends Model
         
         static::creating(function ($job) {
             if (!$job->job_id) {
-                $lastJob = static::orderBy('job_id', 'desc')->first();
-                $lastNumber = 0;
-                if ($lastJob && preg_match('/JOB_(\d+)/', $lastJob->job_id, $matches)) {
-                    $lastNumber = intval($matches[1]);
-                }
-                $job->job_id = 'JOB_' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
+                $maxNumber = (int) static::query()
+                    ->where('job_id', 'like', 'JOB\_%')
+                    ->selectRaw("COALESCE(MAX(CAST(SUBSTRING(job_id, 5) AS UNSIGNED)), 0) as max_job_number")
+                    ->value('max_job_number');
+
+                do {
+                    $maxNumber++;
+                    $candidateId = 'JOB_' . str_pad((string) $maxNumber, 4, '0', STR_PAD_LEFT);
+                } while (static::where('job_id', $candidateId)->exists());
+
+                $job->job_id = $candidateId;
             }
         });
     }

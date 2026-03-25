@@ -32,7 +32,30 @@ Route::get('/jobs', function () {
 
 Route::get('/jobs/{id}', function ($id) {
     $job = \App\Models\JobPosting::findOrFail($id);
-    return view('jobs.show', compact('job'));
+    $existingApplication = null;
+
+    if (auth()->check()) {
+        $candidate = Candidate::where('user_id', auth()->user()->user_id)
+            ->where('job_id', $job->job_id)
+            ->first();
+
+        if ($candidate) {
+            $cvPath = null;
+
+            if (is_string($candidate->notes) && preg_match('/CV:\s*(.+)$/', $candidate->notes, $matches)) {
+                $cvPath = trim($matches[1]);
+            }
+
+            $existingApplication = [
+                'status' => $candidate->status,
+                'applied_date' => $candidate->applied_date,
+                'cv_url' => $cvPath ? asset('storage/' . $cvPath) : null,
+                'cv_name' => $cvPath ? basename($cvPath) : null,
+            ];
+        }
+    }
+
+    return view('jobs.show', compact('job', 'existingApplication'));
 })->name('jobs.show');
 
 Route::post('/apply', function () {
@@ -134,23 +157,22 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/staff/{userId}', [StaffController::class, 'destroy'])->name('staff.destroy');
     });
 
-    // Staff detail/edit access: admin all, staff only self
+    // Staff read access for admin/staff
     Route::middleware('role:admin,staff')->group(function () {
         Route::get('/staff/{userId}/file/{type}', [StaffController::class, 'serveFile'])
             ->where('type', 'avatar|cv|contract')
-            ->middleware('staff.access')
             ->name('staff.file');
 
         Route::get('/staff/{userId}', [StaffController::class, 'show'])
-            ->middleware('staff.access')
             ->name('staff.show');
+    });
 
+    // Admin-only staff mutations
+    Route::middleware('role:admin')->group(function () {
         Route::get('/staff/{userId}/edit', [StaffController::class, 'edit'])
-            ->middleware('staff.access')
             ->name('staff.edit');
 
         Route::put('/staff/{userId}', [StaffController::class, 'update'])
-            ->middleware('staff.access')
             ->name('staff.update');
     });
 
