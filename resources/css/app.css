@@ -12,9 +12,9 @@ body{
 
 /* Header */
 header{
-    background:#1f3a93;
+    background:#3b82f6;
     color:#fff;
-    border-bottom:1px solid #16245a;
+    border-bottom:1px solid #1e40af;
 }
 
 .header-title{
@@ -24,7 +24,7 @@ header{
 
 /* Avatar + user */
 .avatar{
-    background:#1f3a93;
+    background:#3b82f6;
     color:#fff;
 }
 
@@ -46,9 +46,9 @@ header{
 
 /* Sidebar menu trái */
 .sidebar{
-    width:250px;
-    background:#1f3a93;
-    border-right:1px solid #16245a;
+    width:200px;
+    background:#3b82f6;
+    border-right:1px solid #1e40af;
 }
 
 /* Item menu */
@@ -56,13 +56,13 @@ header{
     display:flex;
     align-items:center;
     color:#fff;
-    border-bottom:1px solid #16245a;
+    border-bottom:1px solid #1e40af;
     transition:.3s;
 }
 
 .menu-item:hover,
 .menu-item.active{
-    background:#16245a;
+    background:#1e40af;
 }
 
 /* Layout chính */

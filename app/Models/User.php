@@ -51,4 +51,10 @@ class User extends Authenticatable
             'birth_date' => 'date',
         ];
     }
+
+    // Relationship to Employee (if user is an employee)
+    public function employee()
+    {
+        return $this->hasOne(Employee::class, 'user_id', 'user_id');
+    }
 }

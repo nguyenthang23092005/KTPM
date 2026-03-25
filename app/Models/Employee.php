@@ -7,39 +7,26 @@ use Illuminate\Database\Eloquent\Model;
 class Employee extends Model
 {
     protected $table = 'employees';
-    protected $primaryKey = 'employee_id';
+    protected $primaryKey = 'user_id';
     public $incrementing = false;
     protected $keyType = 'string';
     public $timestamps = true;
 
-    protected static function boot()
-    {
-        parent::boot();
-        
-        static::creating(function ($employee) {
-            if (!$employee->employee_id) {
-                $lastEmployee = static::orderBy('employee_id', 'desc')->first();
-                $lastNumber = 0;
-                if ($lastEmployee && preg_match('/NV(\d+)/', $lastEmployee->employee_id, $matches)) {
-                    $lastNumber = intval($matches[1]);
-                }
-                $employee->employee_id = 'NV' . str_pad($lastNumber + 1, 4, '0', STR_PAD_LEFT);
-            }
-        });
-    }
-
     protected $fillable = [
-        'employee_id', 'name', 'email', 'phone', 'department_id',
-        'position', 'identity_card', 'date_of_birth', 'gender',
-        'marital_status', 'hometown', 'current_address', 'start_date',
-        'status', 'ethnicity', 'religion', 'nationality', 'notes',
-        'avatar', 'cv_path', 'contract_path'
+        'user_id', 'position', 'identity_card', 'marital_status', 'hometown',
+        'current_address', 'start_date', 'department_id', 'ethnicity', 'religion',
+        'nationality', 'avatar_path', 'cv_path', 'contract_path', 'notes', 'status'
     ];
 
     protected $casts = [
-        'date_of_birth' => 'date',
         'start_date' => 'date',
     ];
+
+    // Relationship to User
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
 
     public function department()
     {
@@ -48,6 +35,6 @@ class Employee extends Model
 
     public function interviews()
     {
-        return $this->hasMany(Interview::class, 'employee_id', 'employee_id');
+        return $this->hasMany(Interview::class, 'interviewer', 'user_id');
     }
 }

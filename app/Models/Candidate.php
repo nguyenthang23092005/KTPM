@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Candidate extends Model
 {
     protected $table = 'candidates';
-    protected $primaryKey = 'candidate_id';
+    protected $primaryKey = 'user_id';
     public $incrementing = false;
     protected $keyType = 'string';
     public $timestamps = true;
@@ -29,8 +29,8 @@ class Candidate extends Model
     }
 
     protected $fillable = [
-        'candidate_id', 'job_id', 'name', 'email', 'phone',
-        'position', 'status', 'cv_path', 'applied_date'
+        'user_id', 'job_id', 'name', 'email', 'phone',
+        'position_applied', 'experience', 'education', 'status', 'notes', 'applied_date'
     ];
 
     protected $casts = [
@@ -44,6 +44,6 @@ class Candidate extends Model
 
     public function interviews()
     {
-        return $this->hasMany(Interview::class, 'candidate_id', 'candidate_id');
+        return $this->hasMany(Interview::class, 'user_id', 'user_id');
     }
 }

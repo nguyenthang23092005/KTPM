@@ -14,8 +14,8 @@ class RecruitmentController extends Controller
     public function index()
     {
         $jobPostings = JobPosting::paginate(10);
-        $candidates = Candidate::with('jobPosting')->paginate(10);
-        $interviews = Interview::with(['candidate', 'jobPosting', 'interviewer'])->paginate(10);
+        $candidates = Candidate::with('job')->paginate(10);
+        $interviews = Interview::with(['candidate', 'job', 'interviewer'])->paginate(10);
         $employees = Employee::where('status', 'Đang làm')->get();
 
         return view('recruitment', [

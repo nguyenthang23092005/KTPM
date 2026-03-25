@@ -141,15 +141,6 @@
                 </form>
             </div>
         </div>
-
-        <!-- Tabs -->
-        <div class="mt-6">
-            <div class="flex gap-2 border-b border-gray-200 mb-4 overflow-x-auto">
-                <button class="tab-btn active px-4 py-2 border-b-2 border-blue-500 text-blue-500 font-medium" onclick="openTab(event,'thongtin')">Quản lý tin tuyển dụng</button>
-                <button class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-800" onclick="openTab(event,'hopdong')">Quản lý ứng viên</button>
-                <button class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-800" onclick="openTab(event,'kinhnghiem')">Quản lý phỏng vấn</button>
-            </div>
-        </div>
     </div>
 </div>
 

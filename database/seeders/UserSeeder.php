@@ -27,13 +27,13 @@ class UserSeeder extends Seeder
             'address' => 'Hà Nội, Việt Nam',
         ]);
 
-        // Test customer accounts
+        // Staff account
         User::create([
-            'user_id' => 'KH_001',
+            'user_id' => 'ST_001',
             'name' => 'Nguyễn Văn A',
-            'email' => 'customer1@example.com',
+            'email' => 'staff1@example.com',
             'password' => Hash::make('password123'),
-            'role' => 'customer',
+            'role' => 'staff',
             'gender' => 'Nam',
             'phone' => '0901111111',
             'birth_date' => '1995-05-20',
@@ -41,27 +41,52 @@ class UserSeeder extends Seeder
         ]);
 
         User::create([
-            'user_id' => 'KH_002',
+            'user_id' => 'ST_002',
             'name' => 'Trần Thị B',
-            'email' => 'customer2@example.com',
+            'email' => 'staff2@example.com',
             'password' => Hash::make('password123'),
-            'role' => 'customer',
+            'role' => 'staff',
             'gender' => 'Nữ',
             'phone' => '0902222222',
             'birth_date' => '1998-08-30',
             'address' => 'Đà Nẵng, Việt Nam',
         ]);
 
+        // User/Customer accounts
         User::create([
-            'user_id' => 'KH_003',
+            'user_id' => 'US_001',
             'name' => 'Lê Minh C',
-            'email' => 'customer3@example.com',
+            'email' => 'user1@example.com',
             'password' => Hash::make('password123'),
-            'role' => 'customer',
+            'role' => 'user',
             'gender' => 'Nam',
             'phone' => '0903333333',
             'birth_date' => '1996-03-12',
             'address' => 'Cần Thơ, Việt Nam',
+        ]);
+
+        User::create([
+            'user_id' => 'US_002',
+            'name' => 'Phạm Thị D',
+            'email' => 'user2@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'user',
+            'gender' => 'Nữ',
+            'phone' => '0904444444',
+            'birth_date' => '1997-07-22',
+            'address' => 'Huế, Việt Nam',
+        ]);
+
+        User::create([
+            'user_id' => 'US_003',
+            'name' => 'Hoàng Văn E',
+            'email' => 'user3@example.com',
+            'password' => Hash::make('password123'),
+            'role' => 'user',
+            'gender' => 'Nam',
+            'phone' => '0905555555',
+            'birth_date' => '1999-11-08',
+            'address' => 'Hải Phòng, Việt Nam',
         ]);
     }
 }

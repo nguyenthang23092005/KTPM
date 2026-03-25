@@ -13,7 +13,7 @@ class JobPostingSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('job_postings')->insertOrIgnore([
+        $jobs = [
             [
                 'title' => 'Lập Trình Viên PHP',
                 'description' => 'Tuyển dụng lập trình viên PHP với kinh nghiệm 2+ năm. Yêu cầu: Thành thạo PHP, Laravel.',
@@ -24,8 +24,6 @@ class JobPostingSeeder extends Seeder
                 'department' => 'Phòng IT',
                 'status' => 'active',
                 'deadline' => now()->addDays(30),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'title' => 'Frontend Developer',
@@ -37,8 +35,6 @@ class JobPostingSeeder extends Seeder
                 'department' => 'Phòng IT',
                 'status' => 'active',
                 'deadline' => now()->addDays(25),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'title' => 'Nhân Viên Nhân Sự',
@@ -50,8 +46,6 @@ class JobPostingSeeder extends Seeder
                 'department' => 'Phòng Nhân Sự',
                 'status' => 'active',
                 'deadline' => now()->addDays(20),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'title' => 'Kế Toán Viên',
@@ -63,8 +57,6 @@ class JobPostingSeeder extends Seeder
                 'department' => 'Phòng Kế Toán',
                 'status' => 'active',
                 'deadline' => now()->addDays(28),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
             [
                 'title' => 'Chuyên Viên Marketing',
@@ -76,9 +68,11 @@ class JobPostingSeeder extends Seeder
                 'department' => 'Phòng Marketing',
                 'status' => 'active',
                 'deadline' => now()->addDays(35),
-                'created_at' => now(),
-                'updated_at' => now(),
             ],
-        ]);
+        ];
+
+        foreach ($jobs as $job) {
+            \App\Models\JobPosting::create($job);
+        }
     }
 }

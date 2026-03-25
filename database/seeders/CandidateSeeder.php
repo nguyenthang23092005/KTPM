@@ -13,7 +13,9 @@ class CandidateSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('candidates')->insertOrIgnore([
+        $jobs = \App\Models\JobPosting::all()->keyBy('job_id');
+        
+        $candidates = [
             [
                 'name' => 'Võ Tuấn Anh',
                 'email' => 'votuananh@email.com',
@@ -23,8 +25,7 @@ class CandidateSeeder extends Seeder
                 'education' => 'Đại học Công Nghệ Thông Tin',
                 'status' => 'new',
                 'notes' => 'GPA 3.5/4.0',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'applied_date' => now(),
             ],
             [
                 'name' => 'Đinh Minh Quân',
@@ -35,8 +36,7 @@ class CandidateSeeder extends Seeder
                 'education' => 'Đại học Khoa Học Tự Nhiên',
                 'status' => 'reviewed',
                 'notes' => 'Tốt, có portfolio sản phẩm',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'applied_date' => now(),
             ],
             [
                 'name' => 'Trịnh Thu Hương',
@@ -47,8 +47,7 @@ class CandidateSeeder extends Seeder
                 'education' => 'Đại học Quốc Tế',
                 'status' => 'interviewed',
                 'notes' => 'Xuất sắc trong giao tiếp',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'applied_date' => now(),
             ],
             [
                 'name' => 'Ngô Tuấn Hùng',
@@ -59,8 +58,7 @@ class CandidateSeeder extends Seeder
                 'education' => 'Đại học Kinh Tế Tp.HCM',
                 'status' => 'shortlisted',
                 'notes' => 'Kinh nghiệm dày dặn',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'applied_date' => now(),
             ],
             [
                 'name' => 'Hoàng Yến Nhi',
@@ -71,9 +69,12 @@ class CandidateSeeder extends Seeder
                 'education' => 'Đại học Kinh Tế Tài Chính',
                 'status' => 'new',
                 'notes' => 'Có kinh nghiệm làm Facebook/Google Ads',
-                'created_at' => now(),
-                'updated_at' => now(),
+                'applied_date' => now(),
             ],
-        ]);
+        ];
+
+        foreach ($candidates as $candidate) {
+            \App\Models\Candidate::create($candidate);
+        }
     }
 }

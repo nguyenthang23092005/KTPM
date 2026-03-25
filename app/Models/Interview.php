@@ -29,12 +29,12 @@ class Interview extends Model
     }
 
     protected $fillable = [
-        'interview_id', 'candidate_id', 'job_id', 'employee_id',
-        'interview_date', 'interview_time', 'result', 'notes'
+        'interview_id', 'candidate_id', 'job_id', 'scheduled_at',
+        'interviewer', 'result', 'notes'
     ];
 
     protected $casts = [
-        'interview_date' => 'date',
+        'scheduled_at' => 'datetime',
     ];
 
     public function candidate()

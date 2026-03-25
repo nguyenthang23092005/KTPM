@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,18 +23,20 @@ class AuthController extends Controller
         return back()->with('status','Nếu email tồn tại, hệ thống sẽ gửi liên kết đặt lại mật khẩu.');
     }
 
-    /* ===== HELPER: Sinh ID AD_/KH_ với 3 chữ số ===== */
     private function generateUid3(string $prefix): string
     {
         return DB::transaction(function () use ($prefix) {
+            $length = strlen($prefix) + 2; 
+
             $maxNum = DB::table('users')
-                ->whereRaw("user_id LIKE ? ESCAPE '\\\\'", [$prefix.'\_%'])
-                ->selectRaw("MAX(CAST(SUBSTRING(user_id, 4) AS UNSIGNED)) AS max_num")
+                ->where('user_id', 'like', $prefix . '_%')
+                ->selectRaw("MAX(CAST(SUBSTRING(user_id, $length) AS UNSIGNED)) as max_num")
                 ->lockForUpdate()
                 ->value('max_num');
 
             $next = (int)($maxNum ?? 0) + 1;
-            return sprintf('%s_%03d', $prefix, $next); // AD_001 / KH_001
+
+            return sprintf('%s_%03d', $prefix, $next);
         });
     }
 
@@ -46,16 +49,26 @@ class AuthController extends Controller
             'email'       => ['required','email:rfc,dns','max:255','unique:users,email'],
             'password'    => ['required','confirmed','min:6'],
             'birth_date'  => ['required','date'],
-            'gender'      => ['required','in:Nam,Nữ,Khác'], // khớp enum VN trong DB
+            'gender'      => ['required','in:Nam,Nữ,Khác'], 
             'phone'       => ['required','string','max:20'],
             'address'     => ['required','string','max:255'],
         ]);
 
-        // Quy ước: email @ad.com => admin (AD_), còn lại => customer (KH_)
+        // Quy ước: email @ad.com => admin (AD_), @st.com => staff (ST_), còn lại => user (US_)
         $email   = Str::lower($data['email']);
         $isAdmin = Str::endsWith($email, '@ad.com');
-        $role    = $isAdmin ? 'admin' : 'customer';
-        $prefix  = $isAdmin ? 'AD'    : 'KH';
+        $isStaff = Str::endsWith($email, '@st.com');
+        
+        if ($isAdmin) {
+            $role = 'admin';
+            $prefix = 'AD';
+        } elseif ($isStaff) {
+            $role = 'staff';
+            $prefix = 'ST';
+        } else {
+            $role = 'user';
+            $prefix = 'US';
+        }
 
         $uid = $this->generateUid3($prefix);
 
@@ -86,11 +99,7 @@ class AuthController extends Controller
 
         if (Auth::attempt($credentials, $remember)) {
             $request->session()->regenerate();
-            $user = Auth::user();
-            if ($user && $user->role === 'admin') {
-                return redirect()->route('dashboard.index')->with('success','Đăng nhập thành công!');
-            }
-            return redirect('/')->with('success','Đăng nhập thành công!');
+            return redirect()->route('dashboard.index')->with('success','Đăng nhập thành công!');
         }
 
         return back()->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])->onlyInput('email');

@@ -13,35 +13,32 @@ class DepartmentSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('departments')->insertOrIgnore([
-            [
-                'name' => 'Phòng IT',
-                'description' => 'Bộ phòng công nghệ thông tin',
-                'manager' => 'Nguyễn Văn D',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'Phòng Nhân Sự',
-                'description' => 'Bộ phòng quản lý nhân sự',
-                'manager' => 'Trần Thị E',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'Phòng Kế Toán',
-                'description' => 'Bộ phòng tài chính kế toán',
-                'manager' => 'Lê Minh F',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
-            [
-                'name' => 'Phòng Marketing',
-                'description' => 'Bộ phòng tiếp thị',
-                'manager' => 'Phạm Thị G',
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
+        \App\Models\Department::create([
+            'department_id' => 'DEPT001',
+            'name' => 'Phòng Nhân Sự',
+            'description' => 'Quản lý nhân sự, tuyển dụng và đào tạo',
+            'manager_id' => 'ST_001'
+        ]);
+
+        \App\Models\Department::create([
+            'department_id' => 'DEPT002',
+            'name' => 'Phòng Kế Toán',
+            'description' => 'Quản lý tài chính và kế toán',
+            'manager_id' => 'ST_002'
+        ]);
+
+        \App\Models\Department::create([
+            'department_id' => 'DEPT003',
+            'name' => 'Phòng IT',
+            'description' => 'Công nghệ thông tin và hệ thống',
+            'manager_id' => null
+        ]);
+
+        \App\Models\Department::create([
+            'department_id' => 'DEPT004',
+            'name' => 'Phòng Marketing',
+            'description' => 'Kinh doanh và tiếp thị',
+            'manager_id' => null
         ]);
     }
 }
