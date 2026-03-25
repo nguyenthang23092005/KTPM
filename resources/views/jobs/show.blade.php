@@ -71,6 +71,48 @@
                 <p class="text-gray-700 whitespace-pre-line">{{ $job->requirements }}</p>
             </div>
 
+            <!-- Apply Form -->
+            <div class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
+                <h2 class="text-xl font-bold mb-4">Nộp Hồ Sơ</h2>
+                @auth
+                    <form method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
+                        @csrf
+                        <input type="hidden" name="job_id" value="{{ $job->job_id }}">
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Họ Tên</label>
+                            <input type="text" name="name" value="{{ Auth::user()->name }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                            <input type="email" name="email" value="{{ Auth::user()->email }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
+                            <input type="tel" name="phone" value="{{ Auth::user()->phone ?? '' }}" class="w-full p-2 border border-gray-300 rounded" required>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">CV (PDF, DOC, DOCX)</label>
+                            <input type="file" name="cv" class="w-full p-2 border border-gray-300 rounded" accept=".pdf,.doc,.docx" required>
+                        </div>
+                        
+                        <button type="submit" class="w-full login-btn px-6 py-3 text-white font-medium rounded-lg">
+                            Nộp Hồ Sơ
+                        </button>
+                    </form>
+                @else
+                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                        <p class="text-yellow-800 mb-3">Vui lòng đăng nhập để nộp hồ sơ</p>
+                        <a href="{{ route('auth.login') }}" class="inline-block login-btn px-6 py-2 text-white font-medium rounded-lg">
+                            Đăng Nhập
+                        </a>
+                    </div>
+                @endauth
+            </div>
+
             <!-- Apply Button -->
             <a href="{{ route('jobs.index') }}" class="inline-block login-btn px-6 py-3 text-white font-medium rounded-lg mb-4">
                 ← Quay lại
