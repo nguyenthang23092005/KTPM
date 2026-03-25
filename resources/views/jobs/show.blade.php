@@ -74,6 +74,19 @@
             <!-- Apply Form -->
             <div class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
                 <h2 class="text-xl font-bold mb-4">Nộp Hồ Sơ</h2>
+                @if(session('success'))
+                    <div class="mb-4 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
+                        <p>{{ session('success') }}</p>
+                        @if(session('uploaded_cv_url'))
+                            <a
+                                href="{{ session('uploaded_cv_url') }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="mt-2 inline-block font-semibold text-green-900 underline"
+                            >Mở CV vừa tải lên ({{ session('uploaded_cv_name') }})</a>
+                        @endif
+                    </div>
+                @endif
                 @auth
                     <form method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
                         @csrf

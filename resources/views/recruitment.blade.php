@@ -236,6 +236,13 @@
                             </thead>
                             <tbody>
                                 @forelse($candidates as $candidate)
+                                @php
+                                    $cvPath = null;
+                                    if (!empty($candidate->notes) && \Illuminate\Support\Str::startsWith($candidate->notes, 'CV: ')) {
+                                        $cvPath = trim(substr($candidate->notes, 4));
+                                    }
+                                    $cvUrl = $cvPath ? asset('storage/' . $cvPath) : null;
+                                @endphp
                                 <tr class="border-b hover:bg-gray-50 cursor-pointer">
                                     <td class="px-4 py-2">{{ $candidate->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->email ?? '-' }}</td>
@@ -265,6 +272,8 @@
                                             data-position="{{ $candidate->position_applied }}"
                                             data-status="{{ $candidate->status }}"
                                             data-job-id="{{ $candidate->job_id }}"
+                                            data-cv-url="{{ $cvUrl }}"
+                                            data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
                                             onclick="editCandidateFromButton(this)"
                                             class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
                                         >Chỉnh sửa</button>
@@ -306,6 +315,10 @@
                             <input id="candidate_name" name="name" type="text" class="w-full p-2 border border-gray-300 rounded" required>
                         </div>
                         <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Vị trí</label>
+                            <input id="candidate_position" name="position" type="text" class="w-full p-2 border border-gray-300 rounded" placeholder="Ví dụ: Lập trình viên" required>
+                        </div>
+                        <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
                             <input id="candidate_email" name="email" type="email" class="w-full p-2 border border-gray-300 rounded" required>
                         </div>
@@ -326,6 +339,16 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">CV</label>
                             <input id="candidate_cv" name="cv_path" type="file" class="w-full p-2 border border-gray-300 rounded">
+                            <p id="candidate_existing_cv_wrapper" class="mt-2 text-sm text-gray-600 hidden">
+                                CV hiện tại:
+                                <a
+                                    id="candidate_existing_cv_link"
+                                    href="#"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    class="text-blue-600 hover:underline"
+                                ></a>
+                            </p>
                         </div>
                         @if(auth()->check() && auth()->user()->role === 'admin')
                         <div class="col-span-2 flex gap-2 justify-end">
@@ -802,12 +825,17 @@ function resetCandidateForm() {
     form.action = "{{ route('recruitment.storeCandidate') }}";
     document.getElementById('candidate_user_id').value = '';
     document.getElementById('candidate_name').value = '';
+    document.getElementById('candidate_position').value = '';
     document.getElementById('candidate_email').value = '';
     document.getElementById('candidate_phone').value = '';
     document.getElementById('candidate_job_id').selectedIndex = 0;
-    document.getElementById('candidate_position').selectedIndex = 0;
     document.getElementById('candidate_status').selectedIndex = 0;
     document.getElementById('candidate_cv').value = '';
+    const existingCvWrapper = document.getElementById('candidate_existing_cv_wrapper');
+    const existingCvLink = document.getElementById('candidate_existing_cv_link');
+    existingCvLink.href = '#';
+    existingCvLink.textContent = '';
+    existingCvWrapper.classList.add('hidden');
     document.getElementById('candidateSubmitBtn').textContent = 'Lưu Ứng Viên';
 }
 
@@ -834,8 +862,19 @@ function editCandidateFromButton(button) {
     document.getElementById('candidate_email').value = button.dataset.email ?? '';
     document.getElementById('candidate_phone').value = button.dataset.phone ?? '';
     document.getElementById('candidate_job_id').value = button.dataset.jobId ?? '';
-    document.getElementById('candidate_position').value = button.dataset.position ?? 'Lập trình viên';
+    document.getElementById('candidate_position').value = button.dataset.position ?? '';
     document.getElementById('candidate_status').value = statusMap[button.dataset.status] ?? button.dataset.status ?? 'Đang chờ';
+    const existingCvWrapper = document.getElementById('candidate_existing_cv_wrapper');
+    const existingCvLink = document.getElementById('candidate_existing_cv_link');
+    if (button.dataset.cvUrl) {
+        existingCvLink.href = button.dataset.cvUrl;
+        existingCvLink.textContent = button.dataset.cvName || 'Xem CV đã tải';
+        existingCvWrapper.classList.remove('hidden');
+    } else {
+        existingCvLink.href = '#';
+        existingCvLink.textContent = '';
+        existingCvWrapper.classList.add('hidden');
+    }
     document.getElementById('candidateSubmitBtn').textContent = 'Cập Nhật Ứng Viên';
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }

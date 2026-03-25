@@ -1,10 +1,16 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\admin\DashboardController;
 use App\Http\Controllers\admin\StaffController;
 use App\Http\Controllers\admin\RecruitmentController;
+use App\Models\Candidate;
+use App\Models\JobPosting;
+use App\Models\User;
 
 // Static CSS route
 Route::get('/css/app.css', function () {
@@ -30,26 +36,69 @@ Route::get('/jobs/{id}', function ($id) {
 })->name('jobs.show');
 
 Route::post('/apply', function () {
-    // Job application submission - validated
-    request()->validate([
+    $validated = request()->validate([
         'name' => 'required|string|max:255',
         'email' => 'required|email',
         'phone' => 'required|string|max:20',
-        'job_id' => 'required|exists:job_postings,id',
+        'job_id' => 'required|exists:job_postings,job_id',
         'cv' => 'required|file|mimes:pdf,doc,docx|max:5120',
     ]);
+
+    $uploadedCv = request()->file('cv');
+    $directory = 'candidates/US';
+    $nameSlug = Str::slug($validated['name'], '_');
+    $nameSlug = $nameSlug !== '' ? $nameSlug : 'ung_vien';
+    $baseName = 'CV_UV_' . $nameSlug;
+    $extension = strtolower($uploadedCv->getClientOriginalExtension() ?: 'pdf');
+    $fileName = $baseName . '.' . $extension;
+    $counter = 1;
+
+    while (Storage::disk('public')->exists($directory . '/' . $fileName)) {
+        $counter++;
+        $fileName = $baseName . '_' . $counter . '.' . $extension;
+    }
+
+    $cvPath = $uploadedCv->storeAs($directory, $fileName, 'public');
+
+    $user = User::where('email', $validated['email'])->first();
+    if (!$user) {
+        do {
+            $generatedUserId = 'US_' . (string) Str::ulid();
+        } while (User::where('user_id', $generatedUserId)->exists());
+
+        $user = User::create([
+            'user_id' => $generatedUserId,
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'password' => Hash::make(Str::random(12)),
+            'role' => 'user',
+            'phone' => $validated['phone'],
+        ]);
+    } else {
+        $user->update([
+            'name' => $validated['name'],
+            'phone' => $validated['phone'],
+        ]);
+    }
+
+    $positionApplied = JobPosting::where('job_id', $validated['job_id'])->value('title');
+
+    Candidate::updateOrCreate(
+        ['user_id' => $user->user_id],
+        [
+            'job_id' => $validated['job_id'],
+            'position_applied' => $positionApplied,
+            'status' => 'Đang chờ',
+            'applied_date' => now()->toDateString(),
+            'notes' => 'CV: ' . $cvPath,
+        ]
+    );
     
-    // Create candidate record
-    \App\Models\Candidate::create([
-        'name' => request('name'),
-        'email' => request('email'),
-        'phone' => request('phone'),
-        'job_id' => request('job_id'),
-        'position_applied' => \App\Models\JobPosting::find(request('job_id'))->title,
-        'status' => 'new',
+    return back()->with([
+        'success' => 'Đã nộp đơn thành công. Chúng tôi sẽ liên hệ bạn sớm!',
+        'uploaded_cv_url' => asset('storage/' . $cvPath),
+        'uploaded_cv_name' => $fileName,
     ]);
-    
-    return back()->with('success', 'Đã nộp đơn thành công. Chúng tôi sẽ liên hệ bạn sớm!');
 })->name('jobs.apply');
 
 // ===== AUTH ROUTES =====

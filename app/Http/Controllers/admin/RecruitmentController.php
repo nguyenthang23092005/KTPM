@@ -10,6 +10,7 @@ use App\Models\Interview;
 use App\Models\Employee;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -130,7 +131,7 @@ class RecruitmentController extends Controller
         // Xử lý upload CV
         $cvPath = null;
         if ($request->hasFile('cv_path')) {
-            $cvPath = $request->file('cv_path')->store('cvs', 'public');
+            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
         }
 
         $user = User::where('email', $validated['email'])->first();
@@ -195,7 +196,7 @@ class RecruitmentController extends Controller
         // Xử lý upload CV
         $cvPath = null;
         if ($request->hasFile('cv_path')) {
-            $cvPath = $request->file('cv_path')->store('cvs', 'public');
+            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
         }
 
         $candidate->user->update([
@@ -328,7 +329,7 @@ class RecruitmentController extends Controller
 
         // Xử lý upload CV
         if ($request->hasFile('cv_path')) {
-            $validated['cv_path'] = $request->file('cv_path')->store('cvs', 'public');
+            $validated['cv_path'] = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
         }
         $validated['status'] = 'Đang chờ';
         $validated['applied_date'] = now();
@@ -340,16 +341,11 @@ class RecruitmentController extends Controller
 
     private function generateNextUserId(string $prefix): string
     {
-        $latest = User::where('user_id', 'like', $prefix . '_%')
-            ->orderBy('user_id', 'desc')
-            ->value('user_id');
+        do {
+            $candidateId = $prefix . '_' . (string) Str::ulid();
+        } while (User::where('user_id', $candidateId)->exists());
 
-        $lastNumber = 0;
-        if ($latest && preg_match('/^' . preg_quote($prefix, '/') . '_(\d+)$/', $latest, $matches)) {
-            $lastNumber = (int) $matches[1];
-        }
-
-        return sprintf('%s_%03d', $prefix, $lastNumber + 1);
+        return $candidateId;
     }
 
     private function ensureInterviewRecordForCandidate(string $userId, string $status): void
@@ -367,5 +363,24 @@ class RecruitmentController extends Controller
                 'notes' => 'Tạo tự động khi ứng viên chuyển sang trạng thái Phỏng vấn',
             ]);
         }
+    }
+
+    private function storeCandidateCv($uploadedFile, string $candidateName): string
+    {
+        $directory = 'candidates/AD';
+        $nameSlug = Str::slug($candidateName, '_');
+        $nameSlug = $nameSlug !== '' ? $nameSlug : 'ung_vien';
+        $baseName = 'CV_UV_' . $nameSlug;
+        $extension = strtolower($uploadedFile->getClientOriginalExtension() ?: 'pdf');
+
+        $fileName = $baseName . '.' . $extension;
+        $counter = 1;
+
+        while (Storage::disk('public')->exists($directory . '/' . $fileName)) {
+            $counter++;
+            $fileName = $baseName . '_' . $counter . '.' . $extension;
+        }
+
+        return $uploadedFile->storeAs($directory, $fileName, 'public');
     }
 }
