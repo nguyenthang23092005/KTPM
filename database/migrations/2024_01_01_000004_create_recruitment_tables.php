@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('user_id')->primary(); // Kế thừa từ users
             $table->string('position')->nullable(); // Chức vụ
             $table->string('identity_card')->nullable()->unique(); // CCCD
-            $table->enum('marital_status', ['Độc thân', 'Đã kết hôn', 'Ly hôn', 'Góa'])->nullable();
+            $table->enum('marital_status', ['Độc thân', 'Đã kết hôn', 'Ly hôn'])->nullable();
             $table->string('hometown')->nullable();
             $table->string('current_address')->nullable();
             $table->date('start_date')->nullable(); // Ngày làm việc
@@ -27,11 +27,11 @@ return new class extends Migration
             $table->string('ethnicity')->nullable();
             $table->string('religion')->nullable();
             $table->string('nationality')->default('Việt Nam');
-            $table->string('avatar')->nullable();
+            $table->string('avatar_path')->nullable();
             $table->string('cv_path')->nullable();
             $table->string('contract_path')->nullable();
             $table->text('notes')->nullable();
-            $table->enum('status', ['Đang làm', 'Tạm nghỉ', 'Nghỉ việc'])->default('Đang làm');
+            $table->enum('status', ['Đang làm', 'Nghỉ việc', 'Tạm nghỉ'])->default('Đang làm');
             $table->timestamps();
 
             $table->foreign('user_id')->references('user_id')->on('users')->cascadeOnDelete();
@@ -59,7 +59,7 @@ return new class extends Migration
             $table->string('position_applied')->nullable();
             $table->text('experience')->nullable();
             $table->text('education')->nullable();
-            $table->enum('status', ['new', 'reviewed', 'interviewed', 'shortlisted', 'rejected'])->default('new');
+            $table->enum('status', ['Đang chờ', 'Đã duyệt CV', 'Phỏng vấn', 'Đậu', 'Rớt'])->default('Đang chờ');
             $table->text('notes')->nullable();
             $table->date('applied_date')->nullable();
             $table->timestamps();

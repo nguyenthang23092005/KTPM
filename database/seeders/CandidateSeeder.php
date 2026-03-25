@@ -23,7 +23,7 @@ class CandidateSeeder extends Seeder
             'position_applied' => 'Frontend Developer',
             'experience' => '2 năm kinh nghiệm',
             'education' => 'Đại học Công nghệ Thông tin',
-            'status' => 'reviewed',
+            'status' => 'Đã duyệt CV',
             'applied_date' => '2024-01-10',
             'notes' => 'Có portfolio sản phẩm, tốt về giao tiếp',
         ]);
@@ -35,7 +35,7 @@ class CandidateSeeder extends Seeder
             'position_applied' => 'Nhân Viên Nhân Sự',
             'experience' => '1.5 năm kinh nghiệm',
             'education' => 'Đại học Quốc tế',
-            'status' => 'interviewed',
+            'status' => 'Phỏng vấn',
             'applied_date' => '2024-01-12',
             'notes' => 'Xuất sắc trong giao tiếp, sẵn sàng làm việc',
         ]);
@@ -77,7 +77,7 @@ class CandidateSeeder extends Seeder
                 'position_applied' => $userData['user_id'] === 'US_004' ? 'Kế Toán Viên' : 'Chuyên Viên Marketing',
                 'experience' => $userData['user_id'] === 'US_004' ? '4 năm kinh nghiệm' : '2.5 năm kinh nghiệm',
                 'education' => $userData['user_id'] === 'US_004' ? 'Đại học Kinh Tế TPHCM' : 'Đại học Kinh Tế Tài Chính',
-                'status' => 'new',
+                'status' => 'Đang chờ',
                 'applied_date' => now()->subDays(rand(1, 10)),
                 'notes' => $userData['user_id'] === 'US_004' ? 'Kinh nghiệm dày dặn, tốt' : 'Kinh nghiệm Facebook/Google Ads, sáng tạo',
             ]);

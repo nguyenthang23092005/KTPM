@@ -41,9 +41,4 @@ class JobPosting extends Model
     {
         return $this->hasMany(Candidate::class, 'job_id', 'job_id');
     }
-
-    public function interviews()
-    {
-        return $this->hasMany(Interview::class, 'job_id', 'job_id');
-    }
 }

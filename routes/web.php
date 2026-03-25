@@ -74,14 +74,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
     // Staff Management
-    Route::group(['prefix' => 'staff', 'as' => 'staff.'], function () {
-        Route::get('/', [StaffController::class, 'index'])->name('index');
-        Route::get('/{employeeId}', [StaffController::class, 'show'])->name('show');
-        Route::post('/', [StaffController::class, 'store'])->name('store');
-        Route::get('/{employeeId}/edit', [StaffController::class, 'edit'])->name('edit');
-        Route::post('/{employeeId}', [StaffController::class, 'update'])->name('update');
-        Route::delete('/{employeeId}', [StaffController::class, 'destroy'])->name('destroy');
-    });
+    Route::resource('staff', StaffController::class);
+
 
     // Recruitment Management
     Route::group(['prefix' => 'recruitment', 'as' => 'recruitment.'], function () {

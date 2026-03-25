@@ -33,8 +33,17 @@
         </div>
 
         <!-- Form -->
-        <form id="registerForm" method="POST" action="{{ route('auth.register.submit') }}" class="space-y-6">
+        <form id="registerForm" method="POST" action="{{ route('auth.register') }}" class="space-y-6">
             @csrf
+
+            <!-- Display validation errors -->
+            @if ($errors->any())
+                <div class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    @foreach ($errors->all() as $error)
+                        <p class="text-sm text-red-600">{{ $error }}</p>
+                    @endforeach
+                </div>
+            @endif
 
             <!-- Step 1 -->
             <div id="step1" class="step-content">
@@ -46,12 +55,14 @@
                         <input type="text" name="firstName" value="{{ old('firstName') }}" required
                             class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                             placeholder="Nhập họ">
+                        @error('firstName')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Tên *</label>
                         <input type="text" name="lastName" value="{{ old('lastName') }}" required
                             class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                             placeholder="Nhập tên">
+                        @error('lastName')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                     </div>
                 </div>
 
@@ -59,6 +70,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Ngày sinh</label>
                     <input type="date" name="birth_date" value="{{ old('birth_date') }}" required
                         class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none">
+                    @error('birth_date')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -66,10 +78,11 @@
                     <select name="gender" value="{{ old('gender') }}" required
                         class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none">
                         <option value="">Chọn giới tính</option>
-                        <option value="Nam">Nam</option>
-                        <option value="Nữ">Nữ</option>
-                        <option value="Khác">Khác</option>
+                        <option value="Nam" {{ old('gender') === 'Nam' ? 'selected' : '' }}>Nam</option>
+                        <option value="Nữ" {{ old('gender') === 'Nữ' ? 'selected' : '' }}>Nữ</option>
+                        <option value="Khác" {{ old('gender') === 'Khác' ? 'selected' : '' }}>Khác</option>
                     </select>
+                    @error('gender')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -82,6 +95,7 @@
                     <input type="email" name="email" value="{{ old('email') }}" required
                         class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                         placeholder="Nhập email của bạn">
+                    @error('email')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -89,6 +103,7 @@
                     <input type="tel" name="phone" value="{{ old('phone') }}" required
                         class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none"
                         placeholder="Nhập số điện thoại">
+                    @error('phone')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
 
                 <div>
@@ -96,6 +111,7 @@
                     <textarea name="address" rows="3" required
                         class="input-field w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none resize-none"
                         placeholder="Nhập địa chỉ">{{ old('address') }}</textarea>
+                    @error('address')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 
@@ -137,6 +153,7 @@
                             </svg>
                         </button>
                     </div>
+                    @error('password')<p class="text-sm text-red-600 mt-1">{{ $message }}</p>@enderror
                 </div>
             </div>
 

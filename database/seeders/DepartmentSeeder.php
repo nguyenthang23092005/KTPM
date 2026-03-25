@@ -16,29 +16,25 @@ class DepartmentSeeder extends Seeder
         \App\Models\Department::create([
             'department_id' => 'DEPT001',
             'name' => 'Phòng Nhân Sự',
-            'description' => 'Quản lý nhân sự, tuyển dụng và đào tạo',
-            'manager_id' => 'ST_001'
+            'description' => 'Quản lý nhân sự, tuyển dụng và đào tạo'
         ]);
 
         \App\Models\Department::create([
             'department_id' => 'DEPT002',
             'name' => 'Phòng Kế Toán',
-            'description' => 'Quản lý tài chính và kế toán',
-            'manager_id' => 'ST_002'
+            'description' => 'Quản lý tài chính và kế toán'
         ]);
 
         \App\Models\Department::create([
             'department_id' => 'DEPT003',
             'name' => 'Phòng IT',
-            'description' => 'Công nghệ thông tin và hệ thống',
-            'manager_id' => null
+            'description' => 'Công nghệ thông tin và hệ thống'
         ]);
 
         \App\Models\Department::create([
             'department_id' => 'DEPT004',
             'name' => 'Phòng Marketing',
-            'description' => 'Kinh doanh và tiếp thị',
-            'manager_id' => null
+            'description' => 'Kinh doanh và tiếp thị'
         ]);
     }
 }

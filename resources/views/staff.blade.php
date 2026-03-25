@@ -5,28 +5,51 @@
 <div class="flex gap-6 h-[calc(100vh-10rem)]" style="margin-left: -27px; padding-left: 5px;">
     <!-- Employee List Sidebar -->
     <div class="w-80 bg-white rounded-lg shadow p-4 overflow-y-auto">
-        <h3 class="text-lg font-bold text-gray-900 mb-4">Bộ lọc & Tìm kiếm</h3>
-        <select class="w-full p-2 mb-4 border border-gray-300 rounded" id="deptFilter">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Bộ lọc & Tìm kiếm</h3>
+            <button onclick="resetFilters()" class="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-sm font-medium transition-colors">Làm mới</button>
+        </div>
+        
+        <!-- Search -->
+        <input type="text" id="searchInput" placeholder="Tìm kiếm theo tên/MNV" class="w-full p-2 mb-4 border border-gray-300 rounded" onkeyup="filterAndSortEmployees()">
+        
+        <!-- Department Filter -->
+        <select class="w-full p-2 mb-4 border border-gray-300 rounded" id="deptFilter" onchange="filterAndSortEmployees()">
             <option value="">Phòng ban</option>
             @foreach($departments as $dept)
             <option value="{{ $dept->department_id }}">{{ $dept->name }}</option>
             @endforeach
         </select>
-        <select class="w-full p-2 mb-4 border border-gray-300 rounded">
-            <option value="">Sắp xếp</option>
-            <option>Họ Tên</option>
-            <option>Mã nhân viên</option>
-            <option>Ngày làm việc</option>
+        
+        <!-- Status Filter -->
+        <select class="w-full p-2 mb-4 border border-gray-300 rounded" id="statusFilter" onchange="filterAndSortEmployees()">
+            <option value="">Trạng thái</option>
+            <option value="Đang làm">Đang làm</option>
+            <option value="Tạm nghỉ">Tạm nghỉ</option>
+            <option value="Nghỉ việc">Nghỉ việc</option>
         </select>
-        <input type="text" placeholder="Tìm kiếm theo tên/MNV" class="w-full p-2 mb-4 border border-gray-300 rounded">
-        <ul class="employee-list space-y-2">
+        
+        <!-- Sort -->
+        <div class="flex gap-2">
+            <select class="flex-1 p-2 mb-4 border border-gray-300 rounded" id="sortBy" onchange="filterAndSortEmployees()">
+                <option value="">Sắp xếp</option>
+                <option value="name_asc">Tên (A-Z)</option>
+                <option value="name_desc">Tên (Z-A)</option>
+                <option value="user_id_asc">Mã (↑)</option>
+                <option value="user_id_desc">Mã (↓)</option>
+                <option value="start_date_asc">Ngày làm (cũ nhất)</option>
+                <option value="start_date_desc">Ngày làm (mới nhất)</option>
+            </select>
+        </div>
+        
+        <ul class="employee-list space-y-2" id="employeeListContainer">
             @forelse($employees as $employee)
-            <li onclick="selectEmployee(this, '{{ $employee->employee_id }}')" class="p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 rounded">
+            <li onclick="selectEmployee(this, '{{ $employee->user_id }}')" class="p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 rounded">
                 <div class="flex items-center gap-3">
-                    <img src="{{ $employee->avatar ?? 'https://via.placeholder.com/35' }}" alt="avatar" class="w-9 h-9 rounded-full">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="{{ $employee->avatar_path ? asset('storage/' . $employee->avatar_path) : '' }}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb">
                     <div class="flex-1">
-                        <div class="font-semibold text-gray-800">{{ $employee->name }}</div>
-                        <small class="text-gray-500">{{ $employee->employee_id }}</small>
+                        <div class="font-semibold text-gray-800">{{ $employee->user->name }}</div>
+                        <small class="text-gray-500">{{ $employee->user_id }}</small>
                         <span class="badge {{ $employee->status === 'Đang làm' ? 'dang-lam' : ($employee->status === 'Tạm nghỉ' ? 'tam-nghi' : 'nghi-viec') }} ml-2 inline-block">{{ $employee->status }}</span>
                     </div>
                 </div>
@@ -42,21 +65,21 @@
         <div class="mb-6">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-2xl font-bold text-gray-900">Chi tiết nhân viên</h2>
-                <div class="flex gap-2">
+                <div class="flex gap-2" id="actionButtons">
                     @if(auth()->check() && auth()->user()->role === 'admin')
-                    <button class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Thêm mới</button>
-                    <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Chỉnh sửa</button>
-                    <button class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors">Xóa</button>
+                    <a href="{{ route('staff.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Thêm mới</a>
+                    <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
+                    <button type="button" id="deleteBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors hidden">Xóa</button>
                     @elseif(auth()->check() && auth()->user()->role === 'staff')
-                    <button class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors">Chỉnh sửa</button>
+                    <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
                     @endif
                 </div>
             </div>
             <div class="flex gap-6">
-                <img id="empAvatar" src="https://via.placeholder.com/150x180" alt="ảnh nhân viên" class="w-32 h-44 border border-gray-300 rounded">
+                <img id="empAvatar" src="{{ isset($employees) && count($employees) > 0 ? ($employees[0]->avatar_path ? asset('storage/' . $employees[0]->avatar_path) : 'https://via.placeholder.com/150x180') : 'https://via.placeholder.com/150x180' }}" alt="ảnh nhân viên" class="w-32 h-44 border border-gray-300 rounded">
                 <form id="employeeForm" method="POST" action="" enctype="multipart/form-data" class="flex-1 grid grid-cols-3 gap-4">
                     @csrf
-                    <input type="hidden" id="employeeId" name="employee_id" value="">
+                    <input type="hidden" id="employeeId" name="user_id" value="">
                     
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Họ tên</label>
@@ -80,7 +103,7 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ngày sinh</label>
-                        <input type="date" id="dateOfBirth" name="date_of_birth" class="w-full p-2 border border-gray-300 rounded" readonly>
+                        <input type="date" id="birth_date" name="birth_date" class="w-full p-2 border border-gray-300 rounded" readonly>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Giới tính</label>
@@ -132,11 +155,11 @@
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">CV</label>
-                        <a id="cvLink" href="#" target="_blank" class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block text-center">Xem</a>
+                        <a id="cvLink" href="#" target="_blank" class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block text-center transition-colors">Đang tải...</a>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Hợp đồng</label>
-                        <a id="contractLink" href="#" target="_blank" class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block text-center">Xem</a>
+                        <a id="contractLink" href="#" target="_blank" class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block text-center transition-colors">Đang tải...</a>
                     </div>
                 </form>
             </div>
@@ -145,6 +168,85 @@
 </div>
 
 <script>
+// Employees data injected from server
+const employeesData = @json($employees->items());
+
+function filterAndSortEmployees() {
+    // Get filter values
+    const searchText = document.getElementById('searchInput').value.toLowerCase();
+    const deptFilter = document.getElementById('deptFilter').value;
+    const statusFilter = document.getElementById('statusFilter').value;
+    const sortBy = document.getElementById('sortBy').value;
+    
+    // Filter employees
+    let filtered = employeesData.filter(emp => {
+        const matchSearch = !searchText || 
+            emp.user?.name?.toLowerCase().includes(searchText) ||
+            emp.user_id?.toLowerCase().includes(searchText);
+        
+        const matchDept = !deptFilter || emp.department_id === deptFilter;
+        const matchStatus = !statusFilter || emp.status === statusFilter;
+        
+        return matchSearch && matchDept && matchStatus;
+    });
+    
+    // Sort employees
+    if (sortBy) {
+        filtered.sort((a, b) => {
+            let aVal, bVal;
+            
+            if (sortBy.startsWith('name')) {
+                aVal = a.user?.name || '';
+                bVal = b.user?.name || '';
+            } else if (sortBy.startsWith('user_id')) {
+                aVal = a.user_id || '';
+                bVal = b.user_id || '';
+            } else if (sortBy.startsWith('start_date')) {
+                aVal = a.start_date || '';
+                bVal = b.start_date || '';
+            }
+            
+            if (sortBy.endsWith('_asc')) {
+                return aVal.localeCompare(bVal);
+            } else {
+                return bVal.localeCompare(aVal);
+            }
+        });
+    }
+    
+    // Re-render employee list
+    const container = document.getElementById('employeeListContainer');
+    
+    if (filtered.length === 0) {
+        container.innerHTML = '<li class="p-3 text-gray-500 text-center">Không tìm thấy nhân viên</li>';
+        return;
+    }
+    
+    container.innerHTML = filtered.map(emp => `
+        <li onclick="selectEmployee(this, '${emp.user_id}')" class="p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 rounded">
+            <div class="flex items-center gap-3">
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="${emp.avatar_path ? '/storage/' + emp.avatar_path : ''}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 35 35%22%3E%3Ccircle cx=%2217.5%22 cy=%2217.5%22 r=%2217.5%22 fill=%22%23e5e7eb%22/%3E%3C/svg%3E'">
+                <div class="flex-1">
+                    <div class="font-semibold text-gray-800">${emp.user?.name || ''}</div>
+                    <small class="text-gray-500">${emp.user_id}</small>
+                    <span class="badge ${emp.status === 'Đang làm' ? 'dang-lam' : (emp.status === 'Tạm nghỉ' ? 'tam-nghi' : 'nghi-viec')} ml-2 inline-block">${emp.status}</span>
+                </div>
+            </div>
+        </li>
+    `).join('');
+}
+
+function resetFilters() {
+    // Reset all filter inputs
+    document.getElementById('searchInput').value = '';
+    document.getElementById('deptFilter').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('sortBy').value = '';
+    
+    // Re-render list
+    filterAndSortEmployees();
+}
+
 function openTab(evt, tabName) {
     document.querySelectorAll('.tab-content').forEach(tc => tc.classList.add('hidden'));
     document.getElementById(tabName).classList.remove('hidden');
@@ -152,30 +254,194 @@ function openTab(evt, tabName) {
     evt.currentTarget.classList.add('border-blue-500', 'text-blue-500');
 }
 
-function selectEmployee(el, employeeId) {
-    // Get employee data from the list item
-    const name = el.querySelector('.font-semibold').textContent;
-    const eId = el.querySelector('small').textContent;
-    const statusBadge = el.querySelector('.badge').textContent.trim();
+function selectEmployee(el, userId) {
+    // Remove previous selection
+    document.querySelectorAll('.employee-list li').forEach(li => li.classList.remove('bg-blue-50'));
+    el.classList.add('bg-blue-50');
     
-    // Store data for later use if needed
-    alert('Đã chọn: ' + name);
+    // Get current user info from Laravel
+    const currentUserRole = document.querySelector('meta[name="user-role"]')?.getAttribute('content') || 'guest';
+    const currentUserId = document.querySelector('meta[name="user-id"]')?.getAttribute('content') || '';
     
-    // In a real implementation, you would fetch employee details via AJAX
-    // For now, display basic info
-    document.getElementById('employeeId').value = employeeId;
-    document.getElementById('name').value = name;
-    document.getElementById('employeeIdDisplay').value = eId;
-    document.getElementById('status').value = statusBadge;
+    // Get buttons
+    const editBtn = document.getElementById('editBtn');
+    const deleteBtn = document.getElementById('deleteBtn');
+    
+    // Show/hide buttons based on user role
+    if (editBtn) {
+        if (currentUserRole === 'admin') {
+            editBtn.classList.remove('hidden');
+            editBtn.href = `/staff/${userId}/edit`;
+        } else if (currentUserRole === 'staff' && currentUserId === userId) {
+            editBtn.classList.remove('hidden');
+            editBtn.href = `/staff/${userId}/edit`;
+        } else {
+            editBtn.classList.add('hidden');
+        }
+    }
+    
+    if (deleteBtn) {
+        if (currentUserRole === 'admin') {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.onclick = function(e) {
+                e.preventDefault();
+                if (confirm('Bạn chắc chắn muốn xóa nhân viên này?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/staff/${userId}`;
+                    
+                    let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    if (!token) {
+                        token = document.querySelector('input[name="_token"]')?.value;
+                    }
+                    if (!token) {
+                        token = document.getElementById('employeeForm')?.querySelector('input[name="_token"]')?.value;
+                    }
+                    
+                    if (token) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = '_token';
+                        csrfInput.value = token;
+                        form.appendChild(csrfInput);
+                    }
+                    
+                    const methodInput = document.createElement('input');
+                    methodInput.type = 'hidden';
+                    methodInput.name = '_method';
+                    methodInput.value = 'DELETE';
+                    form.appendChild(methodInput);
+                    
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            };
+        } else {
+            deleteBtn.classList.add('hidden');
+        }
+    }
+    
+    // Get employee data from injected data
+    const emp = employeesData.find(e => e.user_id === userId);
+    if (!emp) {
+        alert('Không tìm thấy nhân viên');
+        return;
+    }
+    
+    const user = emp.user || {};
+    const dept = emp.department || {};
+    
+    // Populate form
+    const fields = {
+        'employeeId': user.user_id || '',
+        'name': user.name || '',
+        'employeeIdDisplay': user.user_id || '',
+        'deptName': dept.name || '',
+        'position': emp.position || '',
+        'identityCard': emp.identity_card || '',
+        'birth_date': user.birth_date ? user.birth_date.split('T')[0] : '',
+        'gender': user.gender || '',
+        'maritalStatus': emp.marital_status || '',
+        'hometown': emp.hometown || '',
+        'phone': user.phone || '',
+        'email': user.email || '',
+        'currentAddress': emp.current_address || '',
+        'startDate': emp.start_date ? emp.start_date.split('T')[0] : '',
+        'status': emp.status || '',
+        'ethnicity': emp.ethnicity || '',
+        'religion': emp.religion || '',
+        'nationality': emp.nationality || '',
+        'notes': emp.notes || ''
+    };
+
+    Object.entries(fields).forEach(([fieldId, value]) => {
+        const el = document.getElementById(fieldId);
+        if (el) {
+            el.value = value;
+        }
+    });
+    
+    // Update avatar
+    const avatarEl = document.getElementById('empAvatar');
+    if (emp.avatar_path && avatarEl) {
+        avatarEl.src = '/storage/' + emp.avatar_path;
+    } else if (avatarEl) {
+        avatarEl.src = 'https://via.placeholder.com/150x180';
+    }
+    
+    // Lazy load avatars in the list after a short delay
+    setTimeout(() => {
+        document.querySelectorAll('img.avatar-thumb[data-avatar]').forEach(img => {
+            if (img.dataset.avatar && !img.src.includes('/storage/')) {
+                img.src = img.dataset.avatar;
+                img.removeAttribute('data-avatar');
+            }
+        });
+    }, 300);
+    
+    // Update file links from pre-computed data
+    const cvLink = document.getElementById('cvLink');
+    const contractLink = document.getElementById('contractLink');
+    
+    // Set CV link based on pre-computed cv_file
+    if (cvLink) {
+        if (emp.cv_file) {
+            cvLink.href = emp.cv_file;
+            cvLink.textContent = 'Tải CV';
+            cvLink.classList.remove('opacity-50', 'cursor-not-allowed');
+            cvLink.style.pointerEvents = 'auto';
+        } else {
+            cvLink.href = '#';
+            cvLink.textContent = 'Chưa có CV';
+            cvLink.classList.add('opacity-50', 'cursor-not-allowed');
+            cvLink.style.pointerEvents = 'none';
+            cvLink.onclick = (e) => e.preventDefault();
+        }
+    }
+    
+    // Set Contract link based on pre-computed contract_file
+    if (contractLink) {
+        if (emp.contract_file) {
+            contractLink.href = emp.contract_file;
+            contractLink.textContent = 'Tải Hợp đồng';
+            contractLink.classList.remove('opacity-50', 'cursor-not-allowed');
+            contractLink.style.pointerEvents = 'auto';
+        } else {
+            contractLink.href = '#';
+            contractLink.textContent = 'Chưa có Hợp đồng';
+            contractLink.classList.add('opacity-50', 'cursor-not-allowed');
+            contractLink.style.pointerEvents = 'none';
+            contractLink.onclick = (e) => e.preventDefault();
+        }
+    }
+    
+    console.log('Form populated successfully');
 }
 
 // Populate first employee on load
 document.addEventListener('DOMContentLoaded', function() {
-    const firstEmployee = document.querySelector('.employee-list .active') || document.querySelector('.employee-list li');
+    // Initialize filters
+    filterAndSortEmployees();
+    
+    // Auto-select first employee
+    const firstEmployee = document.querySelector('.employee-list li');
     if (firstEmployee) {
         firstEmployee.click();
     }
 });
 </script>
+
+<style>
+    /* Ensure buttons show properly */
+    #editBtn:not(.hidden),
+    #deleteBtn:not(.hidden) {
+        display: inline-block !important;
+    }
+    
+    #editBtn.hidden,
+    #deleteBtn.hidden {
+        display: none !important;
+    }
+</style>
 
 @endsection

@@ -7,6 +7,10 @@
     <title>@yield('title')</title>
     <link rel="stylesheet" href="{{ url('css/app.css') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @if(auth()->check())
+    <meta name="user-role" content="{{ auth()->user()->role }}">
+    <meta name="user-id" content="{{ auth()->user()->user_id }}">
+    @endif
     <style>
         .dropdown.show {
             display: block;
@@ -42,13 +46,30 @@
                 <div class="relative">
                     <div class="flex items-center space-x-3 cursor-pointer p-2 rounded-lg transition-colors" onclick="toggleDropdown()">
                         <!-- Avatar -->
-                        <div class="avatar w-10 h-10 text-white rounded-full flex items-center justify-center font-bold text-lg">
+                        <div class="avatar w-10 h-10 text-white rounded-full flex items-center justify-center font-bold text-lg overflow-hidden bg-blue-500">
+                            @php
+                                $avatarPath = Auth::user()?->avatar_path;
+                            @endphp
+                            @if($avatarPath)
+                            <img src="{{ asset('storage/' . $avatarPath) }}" alt="avatar" class="w-full h-full object-cover">
+                            @else
                             <p>{{ Auth::user() ? strtoupper(substr(Auth::user()->name, 0, 1)) : 'A' }}</p>
+                            @endif
                         </div>
                         <!-- User Name -->
                         <div class="text-right">
-                            <p class="avatar-name text-sm font-bold">{{ Auth::user() ? Auth::user()->name : 'Admin' }}</p>
-                            <p class="avatar-name text-xs font-semibold">{{ Auth::user() ? ucfirst(Auth::user()->role) : 'Admin' }}</p>
+                            <p class="avatar-name text-sm font-bold">{{ Auth::user()->name ?? 'Người dùng' }}</p>
+                            <p class="avatar-name text-xs font-semibold">
+                                @php
+                                    $roleNames = [
+                                        'admin' => 'Quản trị viên',
+                                        'staff' => 'Nhân viên',
+                                        'user' => 'Ứng viên'
+                                    ];
+                                    $role = Auth::user()->role ?? 'user';
+                                @endphp
+                                {{ $roleNames[$role] ?? ucfirst($role) }}
+                            </p>
                         </div>
                         <!-- Dropdown Arrow -->
                         <svg class="dropdown-arrow w-4 h-4 transition-transform" id="dropdownArrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">

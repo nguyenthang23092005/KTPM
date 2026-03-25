@@ -63,4 +63,30 @@ class User extends Authenticatable
     {
         return $this->hasOne(Candidate::class, 'user_id', 'user_id');
     }
+
+    // Get avatar path from storage folder
+    public function getAvatarPathAttribute()
+    {
+        $employeeFolderPath = "employees/{$this->user_id}";
+        
+        // Check if folder exists in public disk
+        if (!\Illuminate\Support\Facades\Storage::disk('public')->exists($employeeFolderPath)) {
+            return null;
+        }
+        
+        // Get all files in the folder
+        $files = \Illuminate\Support\Facades\Storage::disk('public')->files($employeeFolderPath);
+        
+        // Filter image files
+        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        foreach ($files as $file) {
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+            if (in_array($ext, $imageExtensions)) {
+                // Return relative path
+                return $file;
+            }
+        }
+        
+        return null;
+    }
 }
