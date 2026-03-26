@@ -109,7 +109,12 @@ class StaffController extends Controller
 
     public function index()
     {
-        $employees = Employee::with('user', 'department')->paginate(15);
+        $employees = Employee::with('user', 'department')
+            ->whereHas('user', function ($query) {
+                $query->where('user_id', 'like', 'ST_%')
+                      ->orWhere('user_id', 'like', 'AD_%');
+            })
+            ->paginate(15);
         $departments = Department::all();
 
         // Pre-compute file paths for each employee
@@ -257,6 +262,12 @@ class StaffController extends Controller
         $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
         $departments = Department::all();
 
+        // Check authorization: admin or self
+        $currentUser = auth()->user();
+        if (!$currentUser || ($currentUser->role !== 'admin' && $currentUser->user_id !== $userId)) {
+            abort(403, 'Bạn không có quyền chỉnh sửa hồ sơ này');
+        }
+
         return view('staff.edit', [
             'employee' => $employee,
             'user' => $employee->user,
@@ -268,6 +279,12 @@ class StaffController extends Controller
     {
         $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
         $user = $employee->user;
+
+        // Check authorization: admin or self
+        $currentUser = auth()->user();
+        if (!$currentUser || ($currentUser->role !== 'admin' && $currentUser->user_id !== $userId)) {
+            abort(403, 'Bạn không có quyền chỉnh sửa hồ sơ này');
+        }
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',

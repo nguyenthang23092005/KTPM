@@ -167,8 +167,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('staff.show');
     });
 
-    // Admin-only staff mutations
-    Route::middleware('role:admin')->group(function () {
+    // Staff edit mutations - admin or self
+    Route::middleware('auth')->group(function () {
         Route::get('/staff/{userId}/edit', [StaffController::class, 'edit'])
             ->name('staff.edit');
 

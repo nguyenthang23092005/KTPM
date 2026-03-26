@@ -71,7 +71,7 @@
                     <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
                     <button type="button" id="deleteBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors hidden">Xóa</button>
                     @elseif(auth()->check() && auth()->user()->role === 'staff')
-                    <span class="px-4 py-2 bg-gray-100 text-gray-600 rounded">Chỉ xem</span>
+                    <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
                     @endif
                 </div>
             </div>
