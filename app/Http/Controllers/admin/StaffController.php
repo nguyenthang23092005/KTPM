@@ -197,6 +197,8 @@ class StaffController extends Controller
             'ethnicity' => 'nullable|string|max:50',
             'religion' => 'nullable|string|max:50',
             'nationality' => 'nullable|string|max:50',
+            'education_level' => 'nullable|string|max:100',
+            'previous_experience' => 'nullable|string|max:2000',
             'notes' => 'nullable|string',
             'avatar_path' => 'nullable|image|max:2048',
             'avatar' => 'nullable|image|max:2048',
@@ -233,6 +235,8 @@ class StaffController extends Controller
             'ethnicity' => $validated['ethnicity'] ?? null,
             'religion' => $validated['religion'] ?? null,
             'nationality' => $validated['nationality'] ?? 'Việt Nam',
+            'education_level' => $validated['education_level'] ?? null,
+            'previous_experience' => $validated['previous_experience'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ];
 
@@ -304,6 +308,8 @@ class StaffController extends Controller
             'ethnicity' => 'nullable|string|max:50',
             'religion' => 'nullable|string|max:50',
             'nationality' => 'nullable|string|max:50',
+            'education_level' => 'nullable|string|max:100',
+            'previous_experience' => 'nullable|string|max:2000',
             'notes' => 'nullable|string',
             'avatar_path' => 'nullable|image|max:2048',
             'avatar' => 'nullable|image|max:2048',
@@ -333,6 +339,8 @@ class StaffController extends Controller
             'ethnicity' => $validated['ethnicity'] ?? $employee->ethnicity,
             'religion' => $validated['religion'] ?? $employee->religion,
             'nationality' => $validated['nationality'] ?? $employee->nationality,
+            'education_level' => $validated['education_level'] ?? $employee->education_level,
+            'previous_experience' => $validated['previous_experience'] ?? $employee->previous_experience,
             'notes' => $validated['notes'] ?? $employee->notes,
         ];
 

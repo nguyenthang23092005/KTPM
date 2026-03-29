@@ -138,6 +138,16 @@
                     <input type="text" name="nationality" class="w-full p-2 border border-gray-300 rounded @error('nationality') border-red-500 @enderror" value="{{ old('nationality', $employee->nationality) }}">
                     @error('nationality') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Trình Độ Học Vấn</label>
+                    <input type="text" name="education_level" class="w-full p-2 border border-gray-300 rounded @error('education_level') border-red-500 @enderror" placeholder="VD: Đại học, Cao đẳng..." value="{{ old('education_level', $employee->education_level) }}">
+                    @error('education_level') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
+                <div class="col-span-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Kinh Nghiệm Việc Làm Trước Đây</label>
+                    <textarea name="previous_experience" rows="3" class="w-full p-2 border border-gray-300 rounded @error('previous_experience') border-red-500 @enderror" placeholder="Mô tả ngắn kinh nghiệm việc làm trước đây...">{{ old('previous_experience', $employee->previous_experience) }}</textarea>
+                    @error('previous_experience') <span class="text-red-500 text-sm">{{ $message }}</span> @enderror
+                </div>
             </div>
         </div>
 

@@ -105,6 +105,14 @@
                     <p class="text-sm text-gray-500 font-medium">Quốc Tịch</p>
                     <p class="text-gray-900">{{ $employee->nationality ?? 'Chưa cập nhật' }}</p>
                 </div>
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Trình Độ Học Vấn</p>
+                    <p class="text-gray-900">{{ $employee->education_level ?? 'Chưa cập nhật' }}</p>
+                </div>
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Kinh Nghiệm Việc Làm Trước Đây</p>
+                    <p class="text-gray-900 whitespace-pre-wrap">{{ $employee->previous_experience ?? 'Chưa cập nhật' }}</p>
+                </div>
             </div>
         </div>
 

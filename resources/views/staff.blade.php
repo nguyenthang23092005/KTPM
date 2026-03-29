@@ -150,6 +150,14 @@
                         <input type="text" id="nationality" name="nationality" class="w-full p-2 border border-gray-300 rounded" readonly>
                     </div>
                     <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Trình độ học vấn</label>
+                        <input type="text" id="educationLevel" name="education_level" class="w-full p-2 border border-gray-300 rounded" readonly>
+                    </div>
+                    <div class="col-span-3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Kinh nghiệm việc làm trước đây</label>
+                        <textarea id="previousExperience" name="previous_experience" rows="3" class="w-full p-2 border border-gray-300 rounded" readonly></textarea>
+                    </div>
+                    <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
                         <input type="text" id="notes" name="notes" class="w-full p-2 border border-gray-300 rounded" readonly>
                     </div>
@@ -351,6 +359,8 @@ function selectEmployee(el, userId) {
         'ethnicity': emp.ethnicity || '',
         'religion': emp.religion || '',
         'nationality': emp.nationality || '',
+        'educationLevel': emp.education_level || '',
+        'previousExperience': emp.previous_experience || '',
         'notes': emp.notes || ''
     };
 
