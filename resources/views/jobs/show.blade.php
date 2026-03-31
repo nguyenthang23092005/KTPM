@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ $job->title }} - Công ty TNHH THT</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url('css/app.css') }}">
 </head>
 <body class="bg-gray-50">
@@ -12,9 +13,10 @@
     <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <a href="{{ route('home') }}" class="text-2xl font-bold logo-text">Công ty TNHH THT</a>
-            <div class="space-x-4">
+            <div class="space-x-4 flex items-center">
                 <a href="{{ route('jobs.index') }}" class="text-gray-600 hover:text-purple-600">Danh sách việc làm</a>
                 @auth
+                    <x-notification-bell />
                     <span class="text-gray-600">{{ Auth::user()->name }}</span>
                     <form method="POST" action="{{ route('auth.logout') }}" style="display:inline;">
                         @csrf
@@ -74,6 +76,40 @@
             <!-- Apply Form -->
             <div id="apply-section" class="bg-blue-50 rounded-lg p-6 mb-6 border border-blue-200">
                 <h2 class="text-xl font-bold mb-4">Nộp Hồ Sơ</h2>
+
+                @if($errors->any())
+                    <div class="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                        @foreach($errors->all() as $error)
+                            <p>{{ $error }}</p>
+                        @endforeach
+                    </div>
+                @endif
+
+                @if($job->isDeleted())
+                    <div class="mb-4 rounded border border-gray-300 bg-gray-100 p-4 text-gray-800">
+                        <div class="flex items-center">
+                            <i class="fas fa-ban text-gray-600 mr-3 text-lg"></i>
+                            <div>
+                                <p class="font-semibold">Tin tuyển dụng này đã bị xóa</p>
+                                <p class="text-sm mt-1">Bạn chỉ có thể xem thông tin, không thể nộp hồ sơ.</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+                
+                <!-- Deadline Expired Alert -->
+                @if($job->isDeadlinePassed())
+                    <div class="mb-4 rounded border border-red-200 bg-red-50 p-4 text-red-800">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle text-red-600 mr-3 text-lg"></i>
+                            <div>
+                                <p class="font-semibold">Vị trí này đã hết hạn tuyển dụng</p>
+                                <p class="text-sm mt-1">Hạn nộp hồ sơ là ngày {{ $job->deadline?->format('d/m/Y') }}. Hiện tại bạn không thể nộp hồ sơ cho vị trí này.</p>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
                 @if(session('success'))
                     <div class="mb-4 rounded border border-green-200 bg-green-50 p-3 text-sm text-green-800">
                         <p>{{ session('success') }}</p>
@@ -103,43 +139,46 @@
                         @endif
                     </div>
                 @endif
-                @auth
-                    <form id="applyForm" method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
-                        @csrf
-                        <input type="hidden" name="job_id" value="{{ $job->job_id }}">
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Họ Tên</label>
-                            <input type="text" name="name" value="{{ Auth::user()->name }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
+
+                @if(!$job->isDeadlinePassed() && !$job->isDeleted())
+                    @auth
+                        <form id="applyForm" method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
+                            @csrf
+                            <input type="hidden" name="job_id" value="{{ $job->job_id }}">
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Họ Tên</label>
+                                <input type="text" name="name" value="{{ Auth::user()->name }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                <input type="email" name="email" value="{{ Auth::user()->email }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
+                                <input type="tel" name="phone" value="{{ old('phone', Auth::user()->phone ?? '') }}" class="w-full p-2 border border-gray-300 rounded" required>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">CV (PDF, DOC, DOCX)</label>
+                                <input type="file" name="cv" class="w-full p-2 border border-gray-300 rounded" accept=".pdf,.doc,.docx" required>
+                            </div>
+                            
+                            <button type="submit" class="w-full login-btn px-6 py-3 text-white font-medium rounded-lg">
+                                Nộp Hồ Sơ
+                            </button>
+                        </form>
+                    @else
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                            <p class="text-yellow-800 mb-3">Vui lòng đăng nhập để nộp hồ sơ</p>
+                            <a href="{{ route('auth.login') }}" class="inline-block login-btn px-6 py-2 text-white font-medium rounded-lg">
+                                Đăng Nhập
+                            </a>
                         </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                            <input type="email" name="email" value="{{ Auth::user()->email }}" class="w-full p-2 border border-gray-300 rounded" required readonly>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Số Điện Thoại</label>
-                            <input type="tel" name="phone" value="{{ old('phone', Auth::user()->phone ?? '') }}" class="w-full p-2 border border-gray-300 rounded" required>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">CV (PDF, DOC, DOCX)</label>
-                            <input type="file" name="cv" class="w-full p-2 border border-gray-300 rounded" accept=".pdf,.doc,.docx" required>
-                        </div>
-                        
-                        <button type="submit" class="w-full login-btn px-6 py-3 text-white font-medium rounded-lg">
-                            Nộp Hồ Sơ
-                        </button>
-                    </form>
-                @else
-                    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                        <p class="text-yellow-800 mb-3">Vui lòng đăng nhập để nộp hồ sơ</p>
-                        <a href="{{ route('auth.login') }}" class="inline-block login-btn px-6 py-2 text-white font-medium rounded-lg">
-                            Đăng Nhập
-                        </a>
-                    </div>
-                @endauth
+                    @endauth
+                @endif
             </div>
 
             <!-- Apply Button -->

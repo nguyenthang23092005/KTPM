@@ -15,8 +15,9 @@ class EmployeeSeeder extends Seeder
     public function run(): void
     {
         // Admin accounts
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'AD_001',
+        ], [
             'position' => 'Giám đốc điều hành',
             'department_id' => 'DEPT001',
             'identity_card' => '012345678901',
@@ -36,8 +37,9 @@ class EmployeeSeeder extends Seeder
             'notes' => 'Admin - Giám đốc hệ thống',
         ]);
 
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'AD_002',
+        ], [
             'position' => 'Phó giám đốc',
             'department_id' => 'DEPT003',
             'identity_card' => '111111111111',
@@ -58,8 +60,9 @@ class EmployeeSeeder extends Seeder
         ]);
 
         // HR Department (DEPT001)
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_001',
+        ], [
             'position' => 'Trưởng phòng Nhân sự',
             'department_id' => 'DEPT001',
             'identity_card' => '012345678902',
@@ -79,8 +82,9 @@ class EmployeeSeeder extends Seeder
             'notes' => 'Quản lý tuyển dụng và quản lý nhân sự',
         ]);
 
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_004',
+        ], [
             'position' => 'Chuyên viên Nhân sự',
             'department_id' => 'DEPT001',
             'identity_card' => '012345678904',
@@ -101,8 +105,9 @@ class EmployeeSeeder extends Seeder
         ]);
 
         // Accounting Department (DEPT002)
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_002',
+        ], [
             'position' => 'Trưởng phòng Kế toán',
             'department_id' => 'DEPT002',
             'identity_card' => '123456789012',
@@ -122,8 +127,9 @@ class EmployeeSeeder extends Seeder
             'notes' => 'Quản lý kế toán tài chính',
         ]);
 
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_006',
+        ], [
             'position' => 'Chuyên viên Kế toán',
             'department_id' => 'DEPT002',
             'identity_card' => '123456789906',
@@ -144,8 +150,9 @@ class EmployeeSeeder extends Seeder
         ]);
 
         // IT Department (DEPT003)
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_003',
+        ], [
             'position' => 'Trưởng phòng IT',
             'department_id' => 'DEPT003',
             'identity_card' => '234567890123',
@@ -165,8 +172,9 @@ class EmployeeSeeder extends Seeder
             'notes' => 'Quản lý phát triển hệ thống IT',
         ]);
 
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_005',
+        ], [
             'position' => 'Lập trình viên PHP',
             'department_id' => 'DEPT003',
             'identity_card' => '234567890125',
@@ -186,8 +194,9 @@ class EmployeeSeeder extends Seeder
             'notes' => 'Phát triển backend Laravel',
         ]);
 
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_007',
+        ], [
             'position' => 'Lập trình viên Frontend',
             'department_id' => 'DEPT003',
             'identity_card' => '234567890127',
@@ -208,8 +217,9 @@ class EmployeeSeeder extends Seeder
         ]);
 
         // Marketing Department (DEPT004)
-        Employee::create([
+        Employee::updateOrCreate([
             'user_id' => 'ST_008',
+        ], [
             'position' => 'Chuyên viên Marketing',
             'department_id' => 'DEPT004',
             'identity_card' => '345678901028',

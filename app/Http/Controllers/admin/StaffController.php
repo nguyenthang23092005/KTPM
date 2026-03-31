@@ -157,8 +157,7 @@ class StaffController extends Controller
 
         $query = Employee::with('user', 'department')
             ->whereHas('user', function ($query) {
-                $query->where('user_id', 'like', 'ST_%')
-                    ->orWhere('user_id', 'like', 'AD_%');
+                $query->whereIn('role', ['staff', 'admin']);
             });
 
         if ($departmentId) {

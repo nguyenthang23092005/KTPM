@@ -113,6 +113,11 @@
                 <span class="mr-4 text-lg">🏬</span>
                 <span class="text-base">Quản lý tuyển dụng</span>
             </a>
+
+            <a href="/hiring-promotions" class="menu-item px-6 py-4">
+                <span class="mr-4 text-lg">✅</span>
+                <span class="text-base">Hoàn tất tuyển dụng</span>
+            </a>
     </div>
     
         <!-- Main Content Area -->
@@ -124,6 +129,7 @@
             'Dashboard': '/dashboard',
             'Quản lý nhân viên': '/staff',
             'Quản lý tuyển dụng': '/recruitment',
+            'Hoàn tất tuyển dụng': '/hiring-promotions',
         };
 
         // Highlight menu item dựa trên current URL

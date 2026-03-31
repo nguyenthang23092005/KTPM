@@ -41,9 +41,10 @@ class InterviewSeeder extends Seeder
         ];
 
         foreach ($interviews as $interview) {
-            Interview::create([
+            Interview::updateOrCreate([
                 'user_id' => $interview[0],
                 'scheduled_at' => $interview[1],
+            ], [
                 'result' => $interview[2],
                 'notes' => $interview[3],
             ]);

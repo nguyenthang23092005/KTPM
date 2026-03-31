@@ -21,6 +21,7 @@
                     <option>Đang tuyển</option>
                     <option>Đã đóng</option>
                     <option>Đã tuyển đủ</option>
+                    <option>Đã xóa</option>
                 </select>
             </div>
         </div>
@@ -39,6 +40,7 @@
                 <option>Phỏng vấn</option>
                 <option>Đã nhận việc</option>
                 <option>Từ chối</option>
+                <option>Job đã xóa</option>
             </select>
             <select id="candidatePositionFilter" class="w-full p-2 border border-gray-300 rounded">
                 <option value="">Vị trí</option>
@@ -123,32 +125,36 @@
                                     <td class="px-4 py-2">{{ $job->quantity }}</td>
                                     <td class="px-4 py-2">{{ $job->deadline?->format('Y-m-d') ?? '-' }}</td>
                                     <td class="px-4 py-2">
-                                        <span class="px-2 py-1 {{ $job->status === 'active' ? 'bg-green-100 text-green-700' : ($job->status === 'filled' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700') }} rounded">
-                                            {{ $job->status === 'active' ? 'Đang tuyển' : ($job->status === 'closed' ? 'Đã đóng' : 'Đã tuyển đủ') }}
+                                        <span class="px-2 py-1 {{ $job->is_deleted ? 'bg-gray-200 text-gray-700' : ($job->status === 'active' ? 'bg-green-100 text-green-700' : ($job->status === 'filled' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')) }} rounded">
+                                            {{ $job->is_deleted ? 'Đã xóa' : ($job->status === 'active' ? 'Đang tuyển' : ($job->status === 'closed' ? 'Đã đóng' : 'Đã tuyển đủ')) }}
                                         </span>
                                     </td>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <td class="px-4 py-2 flex gap-2 justify-center">
-                                        <button
-                                            type="button"
-                                            data-job-id="{{ $job->job_id }}"
-                                            data-title="{{ $job->title }}"
-                                            data-salary-min="{{ $job->salary_min }}"
-                                            data-salary-max="{{ $job->salary_max }}"
-                                            data-quantity="{{ $job->quantity }}"
-                                            data-deadline="{{ $job->deadline?->format('Y-m-d') }}"
-                                            data-description="{{ $job->description }}"
-                                            data-requirements="{{ $job->requirements }}"
-                                            data-status="{{ $job->status }}"
-                                            onclick="editJobPostingFromButton(this)"
-                                            class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                                        >Chỉnh Sửa</button>
+                                        @if($job->is_deleted)
+                                            <a href="{{ route('jobs.show', $job->job_id) }}" class="px-2 py-1 bg-gray-600 text-white text-xs rounded hover:bg-gray-700">Xem</a>
+                                        @else
+                                            <button
+                                                type="button"
+                                                data-job-id="{{ $job->job_id }}"
+                                                data-title="{{ $job->title }}"
+                                                data-salary-min="{{ $job->salary_min }}"
+                                                data-salary-max="{{ $job->salary_max }}"
+                                                data-quantity="{{ $job->quantity }}"
+                                                data-deadline="{{ $job->deadline?->format('Y-m-d') }}"
+                                                data-description="{{ $job->description }}"
+                                                data-requirements="{{ $job->requirements }}"
+                                                data-status="{{ $job->status }}"
+                                                onclick="editJobPostingFromButton(this)"
+                                                class="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                                            >Chỉnh Sửa</button>
 
-                                        <form method="POST" action="{{ route('recruitment.destroyJob', $job->job_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa tin tuyển dụng?')">
-                                            @csrf
-                                            @method('DELETE')
-                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">Xóa</button>
-                                        </form>
+                                            <form method="POST" action="{{ route('recruitment.destroyJob', $job->job_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn chuyển tin này sang trạng thái đã xóa?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600">Xóa</button>
+                                            </form>
+                                        @endif
                                     </td>
                                     @endif
                                 </tr>
@@ -264,17 +270,23 @@
                                     <td class="px-4 py-2">{{ $candidate->position_applied ?? '-' }}</td>
                                     <td class="px-4 py-2">
                                         @php
+                                            $candidateJobDeleted = (bool) ($candidate->job?->is_deleted ?? false);
                                             $displayStatus = match ($candidate->status) {
                                                 'Đậu', 'Nhận việc' => 'Đã nhận việc',
                                                 'Rớt' => 'Từ chối',
                                                 default => $candidate->status,
                                             };
+                                            if ($candidateJobDeleted) {
+                                                $displayStatus = 'Job đã xóa';
+                                            }
+
                                             $statusColors = [
                                                 'Đang chờ' => 'bg-yellow-100 text-yellow-700',
                                                 'Đã duyệt CV' => 'bg-blue-100 text-blue-700',
                                                 'Phỏng vấn' => 'bg-purple-100 text-purple-700',
                                                 'Đã nhận việc' => 'bg-green-100 text-green-700',
                                                 'Từ chối' => 'bg-red-100 text-red-700',
+                                                'Job đã xóa' => 'bg-gray-200 text-gray-700',
                                             ];
                                             $colorClass = $statusColors[$displayStatus] ?? 'bg-gray-100 text-gray-700';
                                         @endphp
@@ -289,7 +301,7 @@
                                             data-email="{{ $candidate->user?->email }}"
                                             data-phone="{{ $candidate->user?->phone }}"
                                             data-position="{{ $candidate->position_applied }}"
-                                            data-status="{{ $displayStatus }}"
+                                            data-status="{{ $candidate->status }}"
                                             data-job-id="{{ $candidate->job_id }}"
                                             data-cv-url="{{ $cvUrl }}"
                                             data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
@@ -399,6 +411,7 @@
                                     <th class="px-4 py-2 text-left">Ngày & Giờ</th>
                                     <th class="px-4 py-2 text-left">Kết Quả</th>
                                     <th class="px-4 py-2 text-left">Ghi Chú</th>
+                                    <th class="px-4 py-2 text-left">Trạng thái Job</th>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <th class="px-4 py-2 text-center">Hành động</th>
                                     @endif
@@ -406,17 +419,35 @@
                             </thead>
                             <tbody>
                                 @forelse($interviews as $interview)
+                                @php
+                                    $jobDeletedState = (bool) ($interview->job?->is_deleted ?? false)
+                                        || str_contains((string) ($interview->notes ?? ''), '[JOB_DELETED]');
+                                    $cleanInterviewNotes = trim(str_replace('[JOB_DELETED]', '', (string) ($interview->notes ?? '')));
+                                @endphp
                                 <tr class="border-b hover:bg-gray-50 cursor-pointer">
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->phone ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->scheduled_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                     <td class="px-4 py-2">
-                                        <span class="px-2 py-1 {{ $interview->result === 'pass' ? 'bg-green-100 text-green-700' : ($interview->result === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700') }} rounded">
-                                            {{ $interview->result === 'pass' ? 'Đã nhận việc' : ($interview->result === 'fail' ? 'Từ chối' : 'Chờ kết quả') }}
-                                        </span>
+                                        @if($jobDeletedState)
+                                            <span class="px-2 py-1 bg-gray-200 text-gray-700 rounded">Job đã xóa</span>
+                                        @else
+                                            <span class="px-2 py-1 {{ $interview->result === 'pass' ? 'bg-green-100 text-green-700' : ($interview->result === 'fail' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700') }} rounded">
+                                                {{ $interview->result === 'pass' ? 'Đã nhận việc' : ($interview->result === 'fail' ? 'Từ chối' : 'Chờ kết quả') }}
+                                            </span>
+                                        @endif
                                     </td>
-                                    <td class="px-4 py-2 text-gray-600">{{ $interview->notes ?? '-' }}</td>
+                                    <td class="px-4 py-2 text-gray-600">{{ $cleanInterviewNotes !== '' ? $cleanInterviewNotes : '-' }}</td>
+                                    <td class="px-4 py-2">
+                                        @if($jobDeletedState)
+                                            <span class="px-2 py-1 bg-gray-200 text-gray-700 rounded">Job đã xóa</span>
+                                        @elseif($interview->job)
+                                            <span class="px-2 py-1 bg-green-100 text-green-700 rounded">Đang liên kết</span>
+                                        @else
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-600 rounded">Không xác định</span>
+                                        @endif
+                                    </td>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <td class="px-4 py-2 flex gap-2 justify-center text-xs">
                                         <button
@@ -442,7 +473,7 @@
                                 </tr>
                                 @empty
                                 <tr class="border-b">
-                                    <td colspan="7" class="px-4 py-4 text-center text-gray-500">Chưa có lịch phỏng vấn</td>
+                                    <td colspan="8" class="px-4 py-4 text-center text-gray-500">Chưa có lịch phỏng vấn</td>
                                 </tr>
                                 @endforelse
                             </tbody>

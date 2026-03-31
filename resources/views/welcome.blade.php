@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trang chủ - Công ty TNHH THT</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url('css/app.css') }}">
 </head>
 <body class="bg-gray-50">
@@ -12,9 +13,10 @@
     <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <h1 class="text-2xl font-bold logo-text">Công ty TNHH THT</h1>
-            <div class="space-x-4">
+            <div class="space-x-4 flex items-center">
                 <a href="{{ route('jobs.index') }}" class="text-gray-600 hover:text-purple-600">Danh sách việc làm</a>
                 @auth
+                    <x-notification-bell />
                     <span class="text-gray-600">{{ Auth::user()->name }}</span>
                     <form method="POST" action="{{ route('auth.logout') }}" style="display:inline;">
                         @csrf

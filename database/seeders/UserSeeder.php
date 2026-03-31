@@ -15,8 +15,9 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         // Admin accounts
-        User::create([
+        User::updateOrCreate([
             'user_id' => 'AD_001',
+        ], [
             'name' => 'Trương Ngọc Thang',
             'email' => 'admin@example.com',
             'password' => Hash::make('password123'),
@@ -27,8 +28,9 @@ class UserSeeder extends Seeder
             'address' => 'Tòa nhà FLC, Hà Nội, Việt Nam',
         ]);
 
-        User::create([
+        User::updateOrCreate([
             'user_id' => 'AD_002',
+        ], [
             'name' => 'Vũ Minh Tâm',
             'email' => 'admin2@example.com',
             'password' => Hash::make('password123'),
@@ -52,8 +54,9 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($staffs as $staff) {
-            User::create([
+            User::updateOrCreate([
                 'user_id' => $staff[0],
+            ], [
                 'name' => $staff[1],
                 'email' => $staff[2],
                 'password' => Hash::make('password123'),
@@ -94,8 +97,9 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($users as $user) {
-            User::create([
+            User::updateOrCreate([
                 'user_id' => $user[0],
+            ], [
                 'name' => $user[1],
                 'email' => $user[2],
                 'password' => Hash::make('password123'),

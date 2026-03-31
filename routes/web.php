@@ -2,12 +2,15 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\admin\DashboardController;
+use App\Http\Controllers\admin\HiringController;
 use App\Http\Controllers\admin\StaffController;
 use App\Http\Controllers\admin\RecruitmentController;
+use App\Http\Controllers\NotificationController;
 use App\Models\Candidate;
 use App\Models\JobPosting;
 use App\Models\User;
@@ -24,8 +27,15 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/jobs', function () {
-    $jobs = \App\Models\JobPosting::where('status', 'active')
-        ->where('deadline', '>=', now())
+    $jobsQuery = \App\Models\JobPosting::where('status', 'active');
+
+    if (Schema::hasColumn('job_postings', 'is_deleted')) {
+        $jobsQuery->where('is_deleted', false);
+    }
+
+    $jobs = $jobsQuery
+        ->orderByRaw('CASE WHEN deadline IS NOT NULL AND deadline < CURRENT_DATE THEN 1 ELSE 0 END')
+        ->orderBy('deadline')
         ->paginate(10);
     return view('jobs.index', compact('jobs'));
 })->name('jobs.index');
@@ -67,6 +77,19 @@ Route::post('/apply', function () {
         'cv' => 'required|file|mimes:pdf,doc,docx|max:5120',
     ]);
 
+    $job = JobPosting::findOrFail($validated['job_id']);
+    if ($job->isDeleted() || $job->status !== 'active') {
+        return back()
+            ->withErrors(['cv' => 'Tin tuyển dụng này không còn nhận hồ sơ.'])
+            ->withInput();
+    }
+
+    if ($job->isDeadlinePassed()) {
+        return back()
+            ->withErrors(['cv' => 'Vị trí này đã hết hạn tuyển dụng, bạn không thể nộp hồ sơ.'])
+            ->withInput();
+    }
+
     $uploadedCv = request()->file('cv');
     $directory = 'candidates/US';
     $nameSlug = Str::slug($validated['name'], '_');
@@ -104,7 +127,7 @@ Route::post('/apply', function () {
         ]);
     }
 
-    $positionApplied = JobPosting::where('job_id', $validated['job_id'])->value('title');
+    $positionApplied = $job->title;
 
     Candidate::updateOrCreate(
         ['user_id' => $user->user_id],
@@ -151,6 +174,11 @@ Route::middleware(['auth'])->group(function () {
 
     // Admin-only staff actions
     Route::middleware('role:admin')->group(function () {
+        Route::get('/hiring-promotions', [HiringController::class, 'index'])
+            ->name('hiring.index');
+        Route::post('/hiring-promotions/{candidateId}/promote', [HiringController::class, 'promote'])
+            ->name('hiring.promote');
+
         Route::get('/staff/create', [StaffController::class, 'create'])->name('staff.create');
         Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
         Route::delete('/staff/{userId}', [StaffController::class, 'destroy'])->name('staff.destroy');
@@ -201,6 +229,15 @@ Route::middleware(['auth'])->group(function () {
 
             Route::post('/apply', [RecruitmentController::class, 'submitApplication'])->name('submitApplication');
         });
+    });
+
+    // Notification routes
+    Route::group(['prefix' => 'notifications', 'as' => 'notifications.'], function () {
+        Route::get('/', [NotificationController::class, 'index'])->name('index');
+        Route::post('/{id}/mark-as-read', [NotificationController::class, 'markAsRead'])->name('markAsRead');
+        Route::post('/mark-all-as-read', [NotificationController::class, 'markAllAsRead'])->name('markAllAsRead');
+        Route::delete('/{id}', [NotificationController::class, 'delete'])->name('delete');
+        Route::get('/unread-count', [NotificationController::class, 'getUnreadCount'])->name('unreadCount');
     });
 });
 

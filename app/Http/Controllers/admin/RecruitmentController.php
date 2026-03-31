@@ -9,23 +9,61 @@ use App\Models\Candidate;
 use App\Models\Interview;
 use App\Models\Employee;
 use App\Models\User;
+use App\Notifications\JobPostingDeletedNotification;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class RecruitmentController extends Controller
 {
+    private const JOB_DELETED_NOTE_PREFIX = '[JOB_DELETED]';
+
+    private function hasIsDeletedColumn(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn('job_postings', 'is_deleted');
+        }
+
+        return $hasColumn;
+    }
+
     public function index()
     {
-        $jobPostings = JobPosting::orderByDesc('updated_at')
+        $jobPostingsQuery = JobPosting::query();
+        if ($this->hasIsDeletedColumn()) {
+            $jobPostingsQuery->orderBy('is_deleted');
+        }
+
+        $jobPostings = $jobPostingsQuery
+            ->orderByDesc('updated_at')
             ->orderByDesc('job_id')
             ->paginate(10);
-        $activeJobPostings = JobPosting::where('status', 'active')->orderBy('title')->get();
-        $candidates = Candidate::with(['user', 'job'])
+
+        $activeJobPostingsQuery = JobPosting::where('status', 'active');
+        if ($this->hasIsDeletedColumn()) {
+            $activeJobPostingsQuery->where('is_deleted', false);
+        }
+
+        $activeJobPostings = $activeJobPostingsQuery
+            ->orderBy('title')
+            ->get();
+        $candidatesQuery = Candidate::with(['user', 'job']);
+        if ($this->hasIsDeletedColumn()) {
+            $candidatesQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM job_postings jp WHERE jp.job_id = candidates.job_id AND jp.is_deleted = 1) THEN 1 ELSE 0 END");
+        }
+        $candidates = $candidatesQuery
             ->orderByDesc('updated_at')
             ->paginate(10);
-        $interviews = Interview::with(['candidate', 'job', 'interviewer'])
+
+        $interviewsQuery = Interview::with(['candidate', 'job', 'interviewer']);
+        if ($this->hasIsDeletedColumn()) {
+            $interviewsQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM candidates c JOIN job_postings jp ON jp.job_id = c.job_id WHERE c.user_id = interviews.user_id AND jp.is_deleted = 1) OR notes LIKE '%[JOB_DELETED]%' THEN 1 ELSE 0 END");
+        }
+        $interviews = $interviewsQuery
             ->orderByDesc('updated_at')
             ->paginate(10);
         $interviewCandidates = Candidate::with('user')
@@ -70,6 +108,9 @@ class RecruitmentController extends Controller
             'Đã tuyển đủ' => 'filled',
         ];
         $validated['status'] = $statusMap[$validated['status']] ?? $validated['status'];
+        if ($this->hasIsDeletedColumn()) {
+            $validated['is_deleted'] = false;
+        }
 
         JobPosting::create($validated);
 
@@ -79,6 +120,12 @@ class RecruitmentController extends Controller
     public function updateJob(Request $request, $jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
+
+        if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
+            return redirect()->route('recruitment.index')->withErrors([
+                'job' => 'Tin tuyển dụng đã xóa chỉ có thể xem, không thể chỉnh sửa.',
+            ]);
+        }
 
         $validated = $request->validate([
             'title' => 'sometimes|required|string|max:255',
@@ -122,9 +169,68 @@ class RecruitmentController extends Controller
     public function destroyJob($jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
-        $job->delete();
 
-        return redirect()->route('recruitment.index')->with('success', 'Xóa tin tuyển dụng thành công');
+        if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
+            return redirect()->route('recruitment.index')->with(
+                'success',
+                'Tin tuyển dụng này đã ở trạng thái đã xóa.'
+            );
+        }
+
+        $candidates = Candidate::query()
+            ->with('user')
+            ->where(function ($query) use ($job) {
+                $query->where('job_id', $job->job_id)
+                    ->orWhere(function ($legacyQuery) use ($job) {
+                        $legacyQuery->whereNull('job_id')
+                            ->where('position_applied', $job->title);
+                    });
+            })
+            ->get();
+
+        $candidateUserIds = $candidates->pluck('user_id');
+
+        foreach ($candidates as $candidate) {
+            if (empty($candidate->job_id)) {
+                $candidate->update(['job_id' => $job->job_id]);
+            }
+
+            if ($candidate->user) {
+                $candidate->user->notify(new JobPostingDeletedNotification($job));
+            }
+        }
+
+        $relatedCandidates = $candidateUserIds->count();
+        $relatedInterviews = $relatedCandidates > 0
+            ? Interview::whereIn('user_id', $candidateUserIds)->count()
+            : 0;
+
+        if ($relatedCandidates > 0) {
+            $interviews = Interview::whereIn('user_id', $candidateUserIds)->get();
+            foreach ($interviews as $interview) {
+                $existingNotes = (string) ($interview->notes ?? '');
+                if (str_contains($existingNotes, self::JOB_DELETED_NOTE_PREFIX)) {
+                    continue;
+                }
+
+                $deletedNote = self::JOB_DELETED_NOTE_PREFIX . ' Job "' . $job->title . '" đã bị xóa.';
+                $interview->update([
+                    'notes' => trim($existingNotes === '' ? $deletedNote : ($existingNotes . "\n" . $deletedNote)),
+                ]);
+            }
+        }
+
+        $jobUpdatePayload = ['status' => 'closed'];
+        if ($this->hasIsDeletedColumn()) {
+            $jobUpdatePayload['is_deleted'] = true;
+        }
+
+        $job->update($jobUpdatePayload);
+
+        return redirect()->route('recruitment.index')->with(
+            'success',
+            "Đã chuyển tin tuyển dụng sang trạng thái Đã xóa. Giữ lại {$relatedCandidates} ứng viên và {$relatedInterviews} lịch phỏng vấn liên quan."
+        );
     }
 
     // ===== CANDIDATES =====
@@ -133,7 +239,12 @@ class RecruitmentController extends Controller
         $validated = $request->validate([
             'job_id' => [
                 'nullable',
-                Rule::exists('job_postings', 'job_id')->where(fn ($query) => $query->where('status', 'active')),
+                Rule::exists('job_postings', 'job_id')->where(function ($query) {
+                    $query->where('status', 'active');
+                    if ($this->hasIsDeletedColumn()) {
+                        $query->where('is_deleted', false);
+                    }
+                }),
             ],
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255',
@@ -199,7 +310,12 @@ class RecruitmentController extends Controller
         $validated = $request->validate([
             'job_id' => [
                 'nullable',
-                Rule::exists('job_postings', 'job_id')->where(fn ($query) => $query->where('status', 'active')),
+                Rule::exists('job_postings', 'job_id')->where(function ($query) {
+                    $query->where('status', 'active');
+                    if ($this->hasIsDeletedColumn()) {
+                        $query->where('is_deleted', false);
+                    }
+                }),
             ],
             'name' => 'required|string|max:255',
             'email' => 'required|email',

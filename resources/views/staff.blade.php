@@ -177,7 +177,7 @@
 
                     {{-- 2. THÔNG TIN CÔNG VIỆC --}}
                     <div class="border rounded-lg p-4 bg-gray-50">
-                        <h3 class="text-2xl font-bold text-black mb-4">Thông tin học vấn - kinh nghiệm</h3>
+                        <h3 class="text-2xl font-bold text-black mb-4">Thông tin công việc</h3>
 
                         <div class="grid grid-cols-3 gap-4">
                             <div>

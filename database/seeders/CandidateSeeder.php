@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Candidate;
+use App\Models\JobPosting;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -14,6 +15,8 @@ class CandidateSeeder extends Seeder
      */
     public function run(): void
     {
+        $jobIdsByTitle = JobPosting::query()->pluck('job_id', 'title');
+
         $candidates = [
             // Frontend candidates
             ['US_001', 'Frontend Developer React', 'Đã duyệt CV', '2 năm kinh nghiệm', 'Đại học Công nghệ TPHCM', 'Có portfolio github, tốt giao tiếp'],
@@ -41,9 +44,10 @@ class CandidateSeeder extends Seeder
         ];
 
         foreach ($candidates as $candidate) {
-            Candidate::create([
+            Candidate::updateOrCreate([
                 'user_id' => $candidate[0],
-                'job_id' => null,
+            ], [
+                'job_id' => $jobIdsByTitle[$candidate[1]] ?? null,
                 'position_applied' => $candidate[1],
                 'status' => $candidate[2],
                 'experience' => $candidate[3],

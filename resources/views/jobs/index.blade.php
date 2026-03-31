@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Danh sách việc làm - Công ty TNHH THT</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url('css/app.css') }}">
 </head>
 <body class="bg-gray-50">
@@ -12,9 +13,10 @@
     <nav class="bg-white shadow">
         <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
             <a href="{{ route('home') }}" class="text-2xl font-bold logo-text">Công ty TNHH THT</a>
-            <div class="space-x-4">
+            <div class="space-x-4 flex items-center">
                 <a href="{{ route('jobs.index') }}" class="text-purple-600 font-medium">Danh sách việc làm</a>
                 @auth
+                    <x-notification-bell />
                     <span class="text-gray-600">{{ Auth::user()->name }}</span>
                     <form method="POST" action="{{ route('auth.logout') }}" style="display:inline;">
                         @csrf
@@ -34,17 +36,24 @@
         @if ($jobs->count() > 0)
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
                 @foreach ($jobs as $job)
-                    <div class="register-card rounded-lg p-6 border">
+                    <div class="register-card rounded-lg p-6 border {{ $job->isDeadlinePassed() ? 'bg-gray-50' : '' }}">
                         <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h3 class="text-xl font-bold logo-text">{{ $job->title }}</h3>
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <h3 class="text-xl font-bold logo-text">{{ $job->title }}</h3>
+                                    @if($job->isDeadlinePassed())
+                                        <span class="inline-flex items-center gap-1 bg-red-100 text-red-800 text-xs font-semibold px-3 py-1 rounded-full">
+                                            <i class="fas fa-calendar-times text-xs"></i> Hết hạn
+                                        </span>
+                                    @endif
+                                </div>
                                 <p class="text-gray-600">{{ $job->department }}</p>
                             </div>
-                            <span class="text-green-600 font-bold">{{ number_format($job->salary_min) }} - {{ number_format($job->salary_max) }} VND</span>
+                            <span class="text-green-600 font-bold whitespace-nowrap ml-4">{{ number_format($job->salary_min) }} - {{ number_format($job->salary_max) }} VND</span>
                         </div>
                         <p class="text-gray-700 mb-4">{{ Str::limit($job->description, 200) }}</p>
                         <div class="flex justify-between items-center">
-                            <span class="text-sm text-gray-500">Hạn nộp: {{ $job->deadline?->format('d/m/Y') ?? 'N/A' }}</span>
+                            <span class="text-sm {{ $job->isDeadlinePassed() ? 'text-red-600 font-semibold' : 'text-gray-500' }}">Hạn nộp: {{ $job->deadline?->format('d/m/Y') ?? 'N/A' }}</span>
                             <a href="{{ route('jobs.show', $job) }}" class="login-btn px-4 py-2 text-white font-medium rounded text-sm">
                                 Chi tiết
                             </a>

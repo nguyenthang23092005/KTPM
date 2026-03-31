@@ -35,15 +35,29 @@ class JobPosting extends Model
 
     protected $fillable = [
         'job_id', 'title', 'salary_min', 'salary_max', 'quantity',
-        'description', 'requirements', 'deadline', 'status'
+        'description', 'requirements', 'deadline', 'status', 'is_deleted'
     ];
 
     protected $casts = [
         'deadline' => 'date',
+        'is_deleted' => 'boolean',
     ];
 
     public function candidates()
     {
         return $this->hasMany(Candidate::class, 'job_id', 'job_id');
+    }
+
+    /**
+     * Check if the job posting deadline has passed
+     */
+    public function isDeadlinePassed(): bool
+    {
+        return $this->deadline && $this->deadline->isPast();
+    }
+
+    public function isDeleted(): bool
+    {
+        return (bool) $this->is_deleted;
     }
 }

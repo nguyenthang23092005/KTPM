@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\JobPosting;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class JobPostingSeeder extends Seeder
                 'location' => 'TP. Hồ Chí Minh',
                 'department' => 'Phòng IT',
                 'status' => 'active',
-                'deadline' => now()->addDays(25),
+                'deadline' => now()->subDays(5), // Hết hạn 5 ngày trước
             ],
             [
                 'title' => 'Full Stack Developer',
@@ -46,7 +47,7 @@ class JobPostingSeeder extends Seeder
                 'location' => 'Hà Nội',
                 'department' => 'Phòng IT',
                 'status' => 'active',
-                'deadline' => now()->addDays(28),
+                'deadline' => now()->subDays(1), // Hết hạn 1 ngày trước
             ],
             [
                 'title' => 'DevOps Engineer',
@@ -81,7 +82,7 @@ class JobPostingSeeder extends Seeder
                 'location' => 'Hà Nội',
                 'department' => 'Phòng Nhân Sự',
                 'status' => 'active',
-                'deadline' => now()->addDays(22),
+                'deadline' => now()->subDays(10), // Hết hạn 10 ngày trước
             ],
             
             // Finance Jobs
@@ -134,7 +135,10 @@ class JobPostingSeeder extends Seeder
         ];
 
         foreach ($jobs as $job) {
-            \App\Models\JobPosting::create($job);
+            JobPosting::updateOrCreate(
+                ['title' => $job['title']],
+                $job
+            );
         }
     }
 }
