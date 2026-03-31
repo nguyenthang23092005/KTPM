@@ -44,13 +44,13 @@ class HiringController extends Controller
 
         $hasPassInterview = $candidate->interviews->contains(fn ($interview) => $interview->result === 'pass');
         if (!$hasPassInterview) {
-            return redirect()->route('hiring.index')->withErrors([
+            return redirect()->route('recruitment.index', ['tab' => 'hiring'])->withErrors([
                 'promote' => 'Ứng viên này chưa có kết quả phỏng vấn đạt, không thể nâng role.',
             ]);
         }
 
         if (!$candidate->user) {
-            return redirect()->route('hiring.index')->withErrors([
+            return redirect()->route('recruitment.index', ['tab' => 'hiring'])->withErrors([
                 'promote' => 'Không tìm thấy tài khoản ứng viên để nâng role.',
             ]);
         }
@@ -98,6 +98,6 @@ class HiringController extends Controller
             $user->notify(new CandidatePromotedToStaffNotification($position, $departmentName));
         });
 
-        return redirect()->route('hiring.index')->with('success', 'Đã nâng role ứng viên thành nhân viên thành công.');
+        return redirect()->route('recruitment.index', ['tab' => 'hiring'])->with('success', 'Đã nâng role ứng viên thành nhân viên thành công.');
     }
 }

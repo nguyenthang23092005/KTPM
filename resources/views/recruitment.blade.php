@@ -59,6 +59,20 @@
             <input id="interviewSearch" type="text" placeholder="Tìm ứng viên..." class="w-full p-2 border border-gray-300 rounded">
             <input id="interviewDateFilter" type="date" class="w-full p-2 border border-gray-300 rounded">
         </div>
+
+        <!-- Search Tab 4: Hiring Completion -->
+        <div id="filter-hiring" class="space-y-4 hidden">
+            <div class="flex items-center justify-between">
+                <span class="text-sm font-semibold text-gray-700">Hoàn tất tuyển dụng</span>
+                <button onclick="resetFilters()" class="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400 text-sm font-medium transition-colors">Làm mới</button>
+            </div>
+            <input id="hiringSearch" type="text" placeholder="Tìm ứng viên đạt phỏng vấn..." class="w-full p-2 border border-gray-300 rounded">
+            <select id="hiringRoleFilter" class="w-full p-2 border border-gray-300 rounded">
+                <option value="">Tất cả role</option>
+                <option>Ứng viên</option>
+                <option>Nhân viên</option>
+            </select>
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -91,6 +105,7 @@
                 <button data-tab="jobs" data-filter="filter-jobs" class="tab-btn active px-4 py-2 border-b-2 border-blue-500 text-blue-500 font-medium" onclick="switchTab(event, 'jobs', 'filter-jobs')">Quản lý Tin Tuyển Dụng</button>
                 <button data-tab="candidates" data-filter="filter-candidates" class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-800" onclick="switchTab(event, 'candidates', 'filter-candidates')">Quản lý Ứng Viên</button>
                 <button data-tab="interviews" data-filter="filter-interviews" class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-800" onclick="switchTab(event, 'interviews', 'filter-interviews')">Quản lý Phỏng Vấn</button>
+                <button data-tab="hiring" data-filter="filter-hiring" class="tab-btn px-4 py-2 border-b-2 border-transparent text-gray-600 hover:text-gray-800" onclick="switchTab(event, 'hiring', 'filter-hiring')">Hoàn tất tuyển dụng</button>
             </div>
 
             <!-- Tab 1: Job Postings -->
@@ -545,6 +560,133 @@
                     </div>
                 </form>
             </div>
+
+            <!-- Tab 4: Hiring Completion -->
+            <div id="hiring" class="tab-content hidden">
+                <div class="mb-8">
+                    <div class="mb-4 flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">Tiếp nhận ứng viên</h3>
+                            <p class="text-sm text-gray-600 mt-1">Danh sách ứng viên đã đạt phỏng vấn và đủ điều kiện trở thành nhân viên chính thức.</p>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table id="hiringTable" class="w-full text-sm border">
+                            <thead class="bg-gray-100 border-b">
+                                <tr>
+                                    <th class="px-4 py-2 text-left">Ứng viên</th>
+                                    <th class="px-4 py-2 text-left">Vị trí ứng tuyển</th>
+                                    <th class="px-4 py-2 text-left">Phỏng vấn đạt gần nhất</th>
+                                    <th class="px-4 py-2 text-left">Hồ sơ</th>
+                                    <th class="px-4 py-2 text-left">Role hiện tại</th>
+                                    <th class="px-4 py-2 text-left">Nâng role</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($hiringCandidates as $candidate)
+                                    @php
+                                        $passInterview = $candidate->interviews
+                                            ->where('result', 'pass')
+                                            ->sortByDesc('scheduled_at')
+                                            ->first();
+
+                                        $cvPath = null;
+                                        if (!empty($candidate->notes) && preg_match('/(?:^|\r\n|\r|\n)CV:\s*([^\r\n]+)/u', $candidate->notes, $matches)) {
+                                            $cvPath = trim($matches[1]);
+                                        }
+                                        $cvUrl = $cvPath ? route('recruitment.candidateCv', $candidate->user_id) : null;
+                                        $isStaff = ($candidate->user?->role ?? null) === 'staff';
+                                    @endphp
+                                    <tr class="border-b hover:bg-gray-50 align-top">
+                                        <td class="px-4 py-2">
+                                            <p class="font-semibold text-gray-900">{{ $candidate->user?->name ?? '-' }}</p>
+                                            <p class="text-gray-600">{{ $candidate->user?->email ?? '-' }}</p>
+                                            <p class="text-gray-600">{{ $candidate->user?->phone ?? '-' }}</p>
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            <p>{{ $candidate->position_applied ?? '-' }}</p>
+                                            <p class="text-xs text-gray-500 mt-1">Job: {{ $candidate->job?->title ?? 'Không xác định' }}</p>
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            @if($passInterview)
+                                                <span class="inline-block px-2 py-1 bg-green-100 text-green-700 rounded">Đã nhận việc</span>
+                                                <p class="text-xs text-gray-600 mt-1">{{ $passInterview->scheduled_at?->format('d/m/Y H:i') ?? '-' }}</p>
+                                            @else
+                                                <span class="inline-block px-2 py-1 bg-yellow-100 text-yellow-700 rounded">Chưa có lịch đạt</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            @if($cvUrl)
+                                                <a href="{{ $cvUrl }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">
+                                                    Xem CV
+                                                </a>
+                                            @else
+                                                <span class="text-gray-500">Không có CV</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2">
+                                            @if($isStaff)
+                                                <span class="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded">Nhân viên</span>
+                                            @else
+                                                <span class="inline-block px-2 py-1 bg-gray-100 text-gray-700 rounded">Ứng viên</span>
+                                            @endif
+                                        </td>
+                                        <td class="px-4 py-2 min-w-[280px]">
+                                            @if(auth()->check() && auth()->user()->role === 'admin')
+                                                @if($isStaff)
+                                                    <div class="rounded border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                                                        Ứng viên này đã được nâng role thành nhân viên.
+                                                    </div>
+                                                @else
+                                                    <form method="POST" action="{{ route('hiring.promote', $candidate->user_id) }}" class="space-y-2 js-hiring-promote-form">
+                                                        @csrf
+                                                        <div>
+                                                            <label class="block text-xs text-gray-600 mb-1">Phòng ban (tùy chọn)</label>
+                                                            <select name="department_id" class="w-full p-2 border border-gray-300 rounded text-xs">
+                                                                <option value="">Chưa gán</option>
+                                                                @foreach($departments as $department)
+                                                                    <option value="{{ $department->department_id }}">{{ $department->name }}</option>
+                                                                @endforeach
+                                                            </select>
+                                                        </div>
+                                                        <div>
+                                                            <label class="block text-xs text-gray-600 mb-1">Chức vụ sau tiếp nhận</label>
+                                                            <input
+                                                                type="text"
+                                                                name="position"
+                                                                value="{{ $candidate->position_applied ?? 'Nhân viên' }}"
+                                                                class="w-full p-2 border border-gray-300 rounded text-xs"
+                                                            >
+                                                        </div>
+                                                        <button
+                                                            type="submit"
+                                                            class="w-full px-3 py-2 bg-blue-600 text-white text-xs rounded hover:bg-blue-700"
+                                                            onclick="return confirm('Xác nhận nâng role ứng viên này thành nhân viên?')"
+                                                        >
+                                                            Nâng role thành nhân viên
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @else
+                                                <span class="text-xs text-gray-500">Chỉ quản trị viên có quyền nâng role.</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="px-4 py-6 text-center text-gray-500">Chưa có ứng viên nào đạt phỏng vấn để tiếp nhận.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="mt-4">
+                        {{ $hiringCandidates->appends(array_merge(request()->except('hiring_page'), ['tab' => 'hiring']))->links() }}
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -557,6 +699,7 @@ const tabFilterMap = {
     jobs: 'filter-jobs',
     candidates: 'filter-candidates',
     interviews: 'filter-interviews',
+    hiring: 'filter-hiring',
 };
 const recruitmentMainContent = document.getElementById('recruitmentMainContent');
 
@@ -685,6 +828,12 @@ document.addEventListener('DOMContentLoaded', () => {
     bindSubmitLoadingToast('jobForm');
     bindSubmitLoadingToast('candidateForm');
     bindSubmitLoadingToast('interviewForm');
+
+    document.querySelectorAll('.js-hiring-promote-form').forEach((form) => {
+        form.addEventListener('submit', () => {
+            showToast('Đang nâng role ứng viên...', 'info', 1500);
+        });
+    });
 });
 
 if (recruitmentMainContent) {
@@ -720,6 +869,9 @@ function resetFilters() {
     }
     if (activeTab === 'interviews') {
         applyInterviewFilters();
+    }
+    if (activeTab === 'hiring') {
+        applyHiringFilters();
     }
 }
 
@@ -848,6 +1000,35 @@ function applyInterviewFilters() {
     setNoResultRow(table, visibleCount, 'Không có lịch phỏng vấn phù hợp bộ lọc');
 }
 
+function applyHiringFilters() {
+    const table = document.getElementById('hiringTable');
+    if (!table) {
+        return;
+    }
+
+    const keyword = normalizeText(document.getElementById('hiringSearch')?.value);
+    const role = normalizeText(document.getElementById('hiringRoleFilter')?.value);
+    const rows = getTableDataRows(table);
+    let visibleCount = 0;
+
+    rows.forEach((row) => {
+        const candidateText = normalizeText(row.cells[0]?.textContent);
+        const positionText = normalizeText(row.cells[1]?.textContent);
+        const roleText = normalizeText(row.cells[4]?.textContent);
+
+        const matchKeyword = !keyword || candidateText.includes(keyword) || positionText.includes(keyword);
+        const matchRole = !role || roleText.includes(role);
+        const isVisible = matchKeyword && matchRole;
+
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) {
+            visibleCount += 1;
+        }
+    });
+
+    setNoResultRow(table, visibleCount, 'Không có ứng viên phù hợp hoàn tất tuyển dụng');
+}
+
 function initRecruitmentFilters() {
     const listeners = [
         { id: 'jobSearch', event: 'input', handler: applyJobFilters },
@@ -857,6 +1038,8 @@ function initRecruitmentFilters() {
         { id: 'candidatePositionFilter', event: 'change', handler: applyCandidateFilters },
         { id: 'interviewSearch', event: 'input', handler: applyInterviewFilters },
         { id: 'interviewDateFilter', event: 'change', handler: applyInterviewFilters },
+        { id: 'hiringSearch', event: 'input', handler: applyHiringFilters },
+        { id: 'hiringRoleFilter', event: 'change', handler: applyHiringFilters },
     ];
 
     listeners.forEach(({ id, event, handler }) => {
@@ -869,6 +1052,7 @@ function initRecruitmentFilters() {
     applyJobFilters();
     applyCandidateFilters();
     applyInterviewFilters();
+    applyHiringFilters();
 }
 
 // Job Posting actions

@@ -8,6 +8,7 @@ use App\Models\JobPosting;
 use App\Models\Candidate;
 use App\Models\Interview;
 use App\Models\Employee;
+use App\Models\Department;
 use App\Models\User;
 use App\Notifications\CandidateStatusUpdatedNotification;
 use App\Notifications\InterviewResultUpdatedNotification;
@@ -117,6 +118,15 @@ class RecruitmentController extends Controller
             ->orderBy('position_applied')
             ->pluck('position_applied');
         $employees = Employee::where('status', 'Đang làm')->get();
+        $hiringCandidates = Candidate::with([
+            'user',
+            'job',
+            'interviews' => fn ($query) => $query->orderByDesc('scheduled_at'),
+        ])
+            ->whereHas('interviews', fn ($query) => $query->where('result', 'pass'))
+            ->orderByDesc('updated_at')
+            ->paginate(10, ['*'], 'hiring_page');
+        $departments = Department::orderBy('name')->get();
 
         return view('recruitment', [
             'jobPostings' => $jobPostings,
@@ -126,6 +136,8 @@ class RecruitmentController extends Controller
             'interviews' => $interviews,
             'interviewCandidates' => $interviewCandidates,
             'employees' => $employees,
+            'hiringCandidates' => $hiringCandidates,
+            'departments' => $departments,
         ]);
     }
 
