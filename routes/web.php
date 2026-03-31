@@ -126,17 +126,15 @@ Route::post('/apply', function () {
 
 // ===== AUTH ROUTES =====
 Route::group(['as' => 'auth.'], function () {
-    // Show forms
     Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
-    Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
-    Route::get('/reset-password', [AuthController::class, 'showResetForm'])->name('reset_password');
-    
-    // Handle form submissions
     Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
+
+    Route::get('/register', [AuthController::class, 'showRegisterForm'])->name('register');
     Route::post('/register', [AuthController::class, 'register'])->name('register.submit');
+
+    Route::get('/reset-password', [AuthController::class, 'showResetForm'])->name('reset_password');
     Route::post('/reset-password', [AuthController::class, 'handleReset'])->name('reset_password.submit');
-    
-    // Logout
+
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 });
 
@@ -147,7 +145,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard.index');
 
         // Staff management overview for admin/staff
-        Route::get('/staff', [StaffController::class, 'index'])->name('staff.index');
+        Route::get('/staff', [StaffController::class, 'departmentOverview'])->name('staff.index');
+        Route::get('/staff/list', [StaffController::class, 'index'])->name('staff.list');
     });
 
     // Admin-only staff actions

@@ -32,7 +32,7 @@
         </div>
 
         <!-- Form -->
-        <form id="resetForm" method="POST" action="{{ route('auth.reset_password') }}" class="space-y-6">
+        <form id="resetForm" method="POST" action="{{ route('auth.reset_password.submit') }}" class="space-y-6">
             @csrf
 
             <!-- Step 1: Email -->

@@ -33,7 +33,7 @@
         </div>
 
         <!-- Form -->
-        <form id="registerForm" method="POST" action="{{ route('auth.register') }}" class="space-y-6">
+        <form id="registerForm" method="POST" action="{{ route('auth.register.submit') }}" class="space-y-6">
             @csrf
 
             <!-- Display validation errors -->

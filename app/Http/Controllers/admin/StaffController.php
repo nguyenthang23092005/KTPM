@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+
+
 class StaffController extends Controller
 {
     /**
@@ -107,17 +109,68 @@ class StaffController extends Controller
         return null;
     }
 
-    public function index()
+    public function departmentOverview()
     {
-        $employees = Employee::with('user', 'department')
+        $departments = Department::withCount('employees')
+            ->get()
+            ->map(function ($dept) {
+                $activeCount = Employee::where('department_id', $dept->department_id)
+                    ->where('status', 'Đang làm')
+                    ->count();
+
+                $onLeaveCount = Employee::where('department_id', $dept->department_id)
+                    ->where('status', 'Tạm nghỉ')
+                    ->count();
+
+                $resignedCount = Employee::where('department_id', $dept->department_id)
+                    ->where('status', 'Nghỉ việc')
+                    ->count();
+
+                return [
+                    'department_id' => $dept->department_id,
+                    'name' => $dept->name,
+                    'description' => $dept->description,
+                    'employees_count' => $dept->employees_count,
+                    'active_count' => $activeCount,
+                    'on_leave_count' => $onLeaveCount,
+                    'resigned_count' => $resignedCount,
+                ];
+            });
+
+        $totalEmployees = Employee::count();
+        $activeEmployees = Employee::where('status', 'Đang làm')->count();
+        $onLeaveEmployees = Employee::where('status', 'Tạm nghỉ')->count();
+        $resignedEmployees = Employee::where('status', 'Nghỉ việc')->count();
+
+        return view('staff_departments', [
+            'departments' => $departments,
+            'totalEmployees' => $totalEmployees,
+            'activeEmployees' => $activeEmployees,
+            'onLeaveEmployees' => $onLeaveEmployees,
+            'resignedEmployees' => $resignedEmployees,
+        ]);
+    }
+
+    public function index(Request $request)
+    {
+        $departmentId = $request->get('department_id');
+
+        $query = Employee::with('user', 'department')
             ->whereHas('user', function ($query) {
                 $query->where('user_id', 'like', 'ST_%')
-                      ->orWhere('user_id', 'like', 'AD_%');
-            })
-            ->paginate(15);
-        $departments = Department::all();
+                    ->orWhere('user_id', 'like', 'AD_%');
+            });
 
-        // Pre-compute file paths for each employee
+        if ($departmentId) {
+            $query->where('department_id', $departmentId);
+        }
+
+        $employees = $query->get();
+        $departments = Department::all();
+        $selectedDepartment = $departmentId
+            ? Department::where('department_id', $departmentId)->first()
+            : null;
+
         foreach ($employees as $employee) {
             $cvPath = $this->resolveEmployeeFilePath($employee, 'cv');
             $contractPath = $this->resolveEmployeeFilePath($employee, 'contract');
@@ -137,6 +190,7 @@ class StaffController extends Controller
         return view('staff', [
             'employees' => $employees,
             'departments' => $departments,
+            'selectedDepartment' => $selectedDepartment,
         ]);
     }
 
@@ -204,6 +258,10 @@ class StaffController extends Controller
             'avatar' => 'nullable|image|max:2048',
             'cv_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'contract_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'degree' => 'nullable|string|max:100',
+            'school_name' => 'nullable|string|max:255',
+            'certificates' => 'nullable|string|max:2000',
+            'language_certificates' => 'nullable|string|max:2000',
         ]);
 
         // Create User first
@@ -236,6 +294,10 @@ class StaffController extends Controller
             'religion' => $validated['religion'] ?? null,
             'nationality' => $validated['nationality'] ?? 'Việt Nam',
             'education_level' => $validated['education_level'] ?? null,
+            'degree' => $validated['degree'] ?? null,
+            'school_name' => $validated['school_name'] ?? null,
+            'certificates' => $validated['certificates'] ?? null,
+            'language_certificates' => $validated['language_certificates'] ?? null,
             'previous_experience' => $validated['previous_experience'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ];
@@ -258,7 +320,10 @@ class StaffController extends Controller
 
         Employee::create($employeeData);
 
-        return redirect()->route('staff.index')->with('success', 'Thêm nhân viên thành công');
+        return redirect()->route('staff.list', [
+            'department_id' => $validated['department_id'],
+            'selected' => $userId,
+        ])->with('success', 'Thêm nhân viên thành công');
     }
 
     public function edit($userId)
@@ -315,6 +380,10 @@ class StaffController extends Controller
             'avatar' => 'nullable|image|max:2048',
             'cv_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
             'contract_path' => 'nullable|file|mimes:pdf,doc,docx|max:5120',
+            'degree' => 'nullable|string|max:100',
+            'school_name' => 'nullable|string|max:255',
+            'certificates' => 'nullable|string|max:2000',
+            'language_certificates' => 'nullable|string|max:2000',
         ]);
 
         // Update User
@@ -342,6 +411,10 @@ class StaffController extends Controller
             'education_level' => $validated['education_level'] ?? $employee->education_level,
             'previous_experience' => $validated['previous_experience'] ?? $employee->previous_experience,
             'notes' => $validated['notes'] ?? $employee->notes,
+            'degree' => $validated['degree'] ?? null,
+            'school_name' => $validated['school_name'] ?? null,
+            'certificates' => $validated['certificates'] ?? null,
+            'language_certificates' => $validated['language_certificates'] ?? null,
         ];
 
         if (!empty($validated['identity_card'])) {
@@ -390,7 +463,10 @@ class StaffController extends Controller
 
         $employee->update($employeeData);
 
-        return redirect()->route('staff.index')->with('success', 'Cập nhật nhân viên thành công');
+        return redirect()->route('staff.list', [
+            'department_id' => $validated['department_id'],
+            'selected' => $userId,
+        ])->with('success', 'Cập nhật nhân viên thành công');
     }
 
     public function destroy($userId)

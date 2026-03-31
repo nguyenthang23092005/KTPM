@@ -109,6 +109,27 @@
                     <p class="text-sm text-gray-500 font-medium">Trình Độ Học Vấn</p>
                     <p class="text-gray-900">{{ $employee->education_level ?? 'Chưa cập nhật' }}</p>
                 </div>
+
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Bằng Cấp</p>
+                    <p class="text-gray-900">{{ $employee->degree ?? 'Chưa cập nhật' }}</p>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Trường Học</p>
+                    <p class="text-gray-900">{{ $employee->school_name ?? 'Chưa cập nhật' }}</p>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Chứng Chỉ</p>
+                    <p class="text-gray-900 whitespace-pre-wrap">{{ $employee->certificates ?? 'Chưa cập nhật' }}</p>
+                </div>
+
+                <div>
+                    <p class="text-sm text-gray-500 font-medium">Bằng Ngôn Ngữ</p>
+                    <p class="text-gray-900 whitespace-pre-wrap">{{ $employee->language_certificates ?? 'Chưa cập nhật' }}</p>
+                </div>
+
                 <div>
                     <p class="text-sm text-gray-500 font-medium">Kinh Nghiệm Việc Làm Trước Đây</p>
                     <p class="text-gray-900 whitespace-pre-wrap">{{ $employee->previous_experience ?? 'Chưa cập nhật' }}</p>
