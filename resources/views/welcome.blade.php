@@ -16,6 +16,9 @@
             <div class="space-x-4 flex items-center">
                 <a href="{{ route('jobs.index') }}" class="text-gray-600 hover:text-purple-600">Danh sách việc làm</a>
                 @auth
+                    @if(Auth::user()->role === 'admin' || Auth::user()->role === 'staff')
+                        <a href="{{ route('dashboard.index') }}" class="text-purple-600 hover:text-purple-800 font-medium">Quay về trang chính</a>
+                    @endif
                     <x-notification-bell />
                     <span class="text-gray-600">{{ Auth::user()->name }}</span>
                     <form method="POST" action="{{ route('auth.logout') }}" style="display:inline;">
@@ -35,9 +38,18 @@
         <div class="text-center text-white">
             <h1 class="text-5xl font-bold mb-4">Công ty TNHH THT</h1>
             <p class="text-xl mb-8">Hệ thống quản lý tuyển dụng và nhân sự</p>
-            <a href="{{ route('jobs.index') }}" class="login-btn px-8 py-3 text-white font-medium rounded-lg inline-block">
-                Xem danh sách việc làm
-            </a>
+            <div class="flex flex-wrap items-center justify-center gap-3">
+                <a href="{{ route('jobs.index') }}" class="login-btn px-8 py-3 text-white font-medium rounded-lg inline-block">
+                    Xem danh sách việc làm
+                </a>
+                @auth
+                    @if(Auth::user()->role === 'admin' || Auth::user()->role === 'staff')
+                        <a href="{{ route('dashboard.index') }}" class="px-8 py-3 bg-white text-purple-700 font-semibold rounded-lg inline-block hover:bg-purple-100 transition-colors">
+                            Quay về trang chính
+                        </a>
+                    @endif
+                @endauth
+            </div>
         </div>
     </div>
 </body>

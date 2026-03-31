@@ -6,7 +6,7 @@
     <div class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-3xl font-bold text-gray-900">Tiếp nhận ứng viên</h1>
-            <p class="text-sm text-gray-600 mt-1">Danh sách ứng viên đã đạt phỏng vấn và quyền nâng role thành nhân viên.</p>
+            <p class="text-sm text-gray-600 mt-1">Danh sách ứng viên đã đạt phỏng vấn và trở thành nhân viên chính thức.</p>
         </div>
     </div>
 

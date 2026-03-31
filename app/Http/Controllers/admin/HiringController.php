@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Candidate;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Notifications\CandidatePromotedToStaffNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -88,6 +89,13 @@ class HiringController extends Controller
             $candidate->update([
                 'status' => 'Đã nhận việc',
             ]);
+
+            $departmentName = null;
+            if (!empty($departmentId)) {
+                $departmentName = Department::where('department_id', $departmentId)->value('name');
+            }
+
+            $user->notify(new CandidatePromotedToStaffNotification($position, $departmentName));
         });
 
         return redirect()->route('hiring.index')->with('success', 'Đã nâng role ứng viên thành nhân viên thành công.');
