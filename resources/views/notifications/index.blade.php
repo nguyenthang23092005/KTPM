@@ -69,6 +69,35 @@
                                         <i class="far fa-calendar"></i>
                                         {{ $notification->created_at->format('d/m/Y H:i') }}
                                     </p>
+                                @elseif($notification->type === 'App\\Notifications\\CandidateStatusUpdatedNotification')
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-user-check text-green-600 text-lg"></i>
+                                        @if(!$notification->read_at)
+                                            <span class="inline-block px-2 py-1 bg-purple-600 text-white text-xs rounded font-bold">MỚI</span>
+                                        @endif
+                                    </div>
+                                    <h3 class="text-lg font-bold mb-2">Cập nhật trạng thái hồ sơ</h3>
+                                    <p class="text-gray-700 mb-2">{{ $notification->data['message'] ?? '' }}</p>
+                                    @if(!empty($notification->data['source']))
+                                        <p class="text-xs text-gray-500 mb-2">Nguồn cập nhật: {{ $notification->data['source'] }}</p>
+                                    @endif
+                                    <p class="text-sm text-gray-500">
+                                        <i class="far fa-calendar"></i>
+                                        {{ $notification->created_at->format('d/m/Y H:i') }}
+                                    </p>
+                                @elseif($notification->type === 'App\\Notifications\\InterviewResultUpdatedNotification')
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-clipboard-check text-blue-600 text-lg"></i>
+                                        @if(!$notification->read_at)
+                                            <span class="inline-block px-2 py-1 bg-purple-600 text-white text-xs rounded font-bold">MỚI</span>
+                                        @endif
+                                    </div>
+                                    <h3 class="text-lg font-bold mb-2">Cập nhật kết quả phỏng vấn</h3>
+                                    <p class="text-gray-700 mb-2">{{ $notification->data['message'] ?? '' }}</p>
+                                    <p class="text-sm text-gray-500">
+                                        <i class="far fa-calendar"></i>
+                                        {{ $notification->created_at->format('d/m/Y H:i') }}
+                                    </p>
                                 @else
                                     <h3 class="text-lg font-bold mb-2">{{ $notification->data['message'] ?? 'Thông báo' }}</h3>
                                     <p class="text-sm text-gray-500">

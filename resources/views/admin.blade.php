@@ -35,8 +35,10 @@
                 </button>
                 
                 <div>
-                    <h2 class="header-title">Công ty TNHH THT</h2>
-                    <p class="header-subtitle text-base font-medium" id="pageSubtitle">Trang chủ</p>
+                    <a href="{{ route('home') }}" class="block">
+                        <h2 class="header-title">Công ty TNHH THT</h2>
+                    </a>
+                    <a href="{{ route('home') }}" class="header-subtitle text-base font-medium hover:underline" id="pageSubtitle">Trang chủ</a>
                 </div>
             </div>
             
@@ -114,10 +116,12 @@
                 <span class="text-base">Quản lý tuyển dụng</span>
             </a>
 
+            @if(auth()->check() && auth()->user()->role === 'admin')
             <a href="/hiring-promotions" class="menu-item px-6 py-4">
                 <span class="mr-4 text-lg">✅</span>
                 <span class="text-base">Hoàn tất tuyển dụng</span>
             </a>
+            @endif
     </div>
     
         <!-- Main Content Area -->

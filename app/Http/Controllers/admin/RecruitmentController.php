@@ -9,6 +9,8 @@ use App\Models\Candidate;
 use App\Models\Interview;
 use App\Models\Employee;
 use App\Models\User;
+use App\Notifications\CandidateStatusUpdatedNotification;
+use App\Notifications\InterviewResultUpdatedNotification;
 use App\Notifications\JobPostingDeletedNotification;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
@@ -20,6 +22,19 @@ class RecruitmentController extends Controller
 {
     private const JOB_DELETED_NOTE_PREFIX = '[JOB_DELETED]';
 
+    private function extractCvPathFromNotes(?string $notes): ?string
+    {
+        if (!is_string($notes) || trim($notes) === '') {
+            return null;
+        }
+
+        if (preg_match('/(?:^|\r\n|\r|\n)CV:\s*([^\r\n]+)/u', $notes, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return null;
+    }
+
     private function hasIsDeletedColumn(): bool
     {
         static $hasColumn = null;
@@ -29,6 +44,32 @@ class RecruitmentController extends Controller
         }
 
         return $hasColumn;
+    }
+
+    private function normalizeCandidateStatus(?string $status): ?string
+    {
+        if ($status === null) {
+            return null;
+        }
+
+        $statusMap = [
+            'Đậu' => 'Đã nhận việc',
+            'Nhận việc' => 'Đã nhận việc',
+            'Rớt' => 'Từ chối',
+        ];
+
+        return $statusMap[$status] ?? $status;
+    }
+
+    private function interviewResultLabel(string $result): string
+    {
+        $resultMap = [
+            'pass' => 'Đã nhận việc',
+            'fail' => 'Từ chối',
+            'pending' => 'Chờ kết quả',
+        ];
+
+        return $resultMap[$result] ?? $result;
     }
 
     public function index()
@@ -306,6 +347,7 @@ class RecruitmentController extends Controller
     public function updateCandidate(Request $request, $candidateId)
     {
         $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
+        $oldStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $validated = $request->validate([
             'job_id' => [
@@ -355,6 +397,14 @@ class RecruitmentController extends Controller
 
         $this->ensureInterviewRecordForCandidate($candidate->user_id, $candidateStatus);
 
+        if ($candidate->user && $oldStatus !== $candidateStatus) {
+            $candidate->user->notify(new CandidateStatusUpdatedNotification(
+                $candidateStatus,
+                $candidate->position_applied ?? null,
+                'quản lý ứng viên'
+            ));
+        }
+
         return redirect()->route('recruitment.index')->with('success', 'Cập nhật ứng viên thành công');
     }
 
@@ -364,6 +414,18 @@ class RecruitmentController extends Controller
         $candidate->delete();
 
         return redirect()->route('recruitment.index')->with('success', 'Xóa ứng viên thành công');
+    }
+
+    public function serveCandidateCv(string $candidateId)
+    {
+        $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
+        $cvPath = $this->extractCvPathFromNotes($candidate->notes);
+
+        if (!$cvPath || !Storage::disk('public')->exists($cvPath)) {
+            abort(404);
+        }
+
+        return response()->file(Storage::disk('public')->path($cvPath));
     }
 
     // ===== INTERVIEWS =====
@@ -379,6 +441,7 @@ class RecruitmentController extends Controller
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
+        $oldCandidateStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $resultMap = [
             'Đã nhận việc' => 'pass',
@@ -399,10 +462,29 @@ class RecruitmentController extends Controller
         ]);
 
         // Update candidate status based on interview result
+        $newCandidateStatus = $oldCandidateStatus;
         if ($result === 'pass') {
-            $candidate->update(['status' => 'Đã nhận việc']);
+            $newCandidateStatus = 'Đã nhận việc';
+            $candidate->update(['status' => $newCandidateStatus]);
         } elseif ($result === 'fail') {
-            $candidate->update(['status' => 'Từ chối']);
+            $newCandidateStatus = 'Từ chối';
+            $candidate->update(['status' => $newCandidateStatus]);
+        }
+
+        if ($candidate->user && $result !== 'pending') {
+            $candidate->user->notify(new InterviewResultUpdatedNotification(
+                $this->interviewResultLabel($result),
+                $candidate->position_applied ?? null,
+                now()->toDateTimeString()
+            ));
+        }
+
+        if ($candidate->user && $oldCandidateStatus !== $newCandidateStatus) {
+            $candidate->user->notify(new CandidateStatusUpdatedNotification(
+                $newCandidateStatus,
+                $candidate->position_applied ?? null,
+                'quản lý phỏng vấn'
+            ));
         }
 
         return redirect()->route('recruitment.index')->with('success', 'Thêm lịch phỏng vấn thành công');
@@ -411,6 +493,7 @@ class RecruitmentController extends Controller
     public function updateInterview(Request $request, $interviewId)
     {
         $interview = Interview::where('interview_id', $interviewId)->firstOrFail();
+        $oldResult = $interview->result;
 
         $validated = $request->validate([
             'candidate_email' => 'required|email|exists:users,email',
@@ -422,6 +505,7 @@ class RecruitmentController extends Controller
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
+        $oldCandidateStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $resultMap = [
             'Đã nhận việc' => 'pass',
@@ -442,13 +526,33 @@ class RecruitmentController extends Controller
         ]);
 
         // Update candidate status based on interview result
+        $newCandidateStatus = $oldCandidateStatus;
         if ($result === 'pass') {
-            $candidate->update(['status' => 'Đã nhận việc']);
+            $newCandidateStatus = 'Đã nhận việc';
+            $candidate->update(['status' => $newCandidateStatus]);
         } elseif ($result === 'fail') {
-            $candidate->update(['status' => 'Từ chối']);
+            $newCandidateStatus = 'Từ chối';
+            $candidate->update(['status' => $newCandidateStatus]);
         } else {
             // Keep status as is for pending result
-            $candidate->update(['status' => 'Phỏng vấn']);
+            $newCandidateStatus = 'Phỏng vấn';
+            $candidate->update(['status' => $newCandidateStatus]);
+        }
+
+        if ($candidate->user && $oldResult !== $result) {
+            $candidate->user->notify(new InterviewResultUpdatedNotification(
+                $this->interviewResultLabel($result),
+                $candidate->position_applied ?? null,
+                $interview->scheduled_at?->format('Y-m-d H:i:s')
+            ));
+        }
+
+        if ($candidate->user && $oldCandidateStatus !== $newCandidateStatus) {
+            $candidate->user->notify(new CandidateStatusUpdatedNotification(
+                $newCandidateStatus,
+                $candidate->position_applied ?? null,
+                'quản lý phỏng vấn'
+            ));
         }
 
         return redirect()->route('recruitment.index')->with('success', 'Cập nhật lịch phỏng vấn thành công');
@@ -500,8 +604,13 @@ class RecruitmentController extends Controller
             return;
         }
 
-        $hasInterview = Interview::where('user_id', $userId)->exists();
-        if (!$hasInterview) {
+        // When candidate is moved back to interview stage, ensure there is a pending interview row.
+        // Do not rely on generic existence because user may only have historical pass/fail interviews.
+        $hasPendingInterview = Interview::where('user_id', $userId)
+            ->where('result', 'pending')
+            ->exists();
+
+        if (!$hasPendingInterview) {
             Interview::create([
                 'user_id' => $userId,
                 'scheduled_at' => null,

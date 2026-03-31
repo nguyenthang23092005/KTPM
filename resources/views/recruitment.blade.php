@@ -248,6 +248,7 @@
                                     <th class="px-4 py-2 text-left">Email</th>
                                     <th class="px-4 py-2 text-left">SĐT</th>
                                     <th class="px-4 py-2 text-left">Vị trí</th>
+                                    <th class="px-4 py-2 text-left">CV</th>
                                     <th class="px-4 py-2 text-left">Trạng thái</th>
                                     @if(auth()->check() && auth()->user()->role === 'admin')
                                     <th class="px-4 py-2 text-center">Hành động</th>
@@ -258,16 +259,23 @@
                                 @forelse($candidates as $candidate)
                                 @php
                                     $cvPath = null;
-                                    if (!empty($candidate->notes) && \Illuminate\Support\Str::startsWith($candidate->notes, 'CV: ')) {
-                                        $cvPath = trim(substr($candidate->notes, 4));
+                                    if (!empty($candidate->notes) && preg_match('/(?:^|\r\n|\r|\n)CV:\s*([^\r\n]+)/u', $candidate->notes, $matches)) {
+                                        $cvPath = trim($matches[1]);
                                     }
-                                    $cvUrl = $cvPath ? asset('storage/' . $cvPath) : null;
+                                    $cvUrl = $cvPath ? route('recruitment.candidateCv', $candidate->user_id) : null;
                                 @endphp
                                 <tr class="border-b hover:bg-gray-50 cursor-pointer">
                                     <td class="px-4 py-2">{{ $candidate->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->phone ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->position_applied ?? '-' }}</td>
+                                    <td class="px-4 py-2">
+                                        @if($cvUrl)
+                                            <a href="{{ $cvUrl }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Xem CV</a>
+                                        @else
+                                            <span class="text-gray-500">Không có CV</span>
+                                        @endif
+                                    </td>
                                     <td class="px-4 py-2">
                                         @php
                                             $candidateJobDeleted = (bool) ($candidate->job?->is_deleted ?? false);
@@ -318,7 +326,7 @@
                                 </tr>
                                 @empty
                                 <tr class="border-b">
-                                    <td colspan="6" class="px-4 py-4 text-center text-gray-500">Chưa có ứng viên</td>
+                                    <td colspan="{{ auth()->check() && auth()->user()->role === 'admin' ? 7 : 6 }}" class="px-4 py-4 text-center text-gray-500">Chưa có ứng viên</td>
                                 </tr>
                                 @endforelse
                             </tbody>
@@ -793,7 +801,7 @@ function applyCandidateFilters() {
         const email = normalizeText(row.cells[1]?.textContent);
         const phone = normalizeText(row.cells[2]?.textContent);
         const positionText = normalizeText(row.cells[3]?.textContent);
-        const statusText = normalizeText(row.cells[4]?.textContent);
+        const statusText = normalizeText(row.cells[5]?.textContent);
 
         const matchKeyword = !keyword || name.includes(keyword) || email.includes(keyword) || phone.includes(keyword);
         const matchStatus = !status || statusText.includes(status);

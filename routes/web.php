@@ -210,6 +210,10 @@ Route::middleware(['auth'])->group(function () {
             ->middleware('role:admin,staff')
             ->name('index');
 
+        Route::get('/candidate/{candidateId}/cv', [RecruitmentController::class, 'serveCandidateCv'])
+            ->middleware('role:admin,staff')
+            ->name('candidateCv');
+
         // Admin-only recruitment mutations
         Route::middleware('role:admin')->group(function () {
             // Job Postings
