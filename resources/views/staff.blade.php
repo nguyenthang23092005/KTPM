@@ -52,7 +52,7 @@
                     <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 35 35'%3E%3Ccircle cx='17.5' cy='17.5' r='17.5' fill='%23e5e7eb'/%3E%3C/svg%3E" data-avatar="{{ $employee->avatar_file ?? '' }}" alt="avatar" class="w-9 h-9 rounded-full avatar-thumb">
                     <div class="flex-1">
                         <div class="font-semibold text-gray-800">{{ $employee->user->name }}</div>
-                        <small class="text-gray-500">{{ $employee->user_id }}</small>
+                        <small class="text-gray-500">{{ $employee->employee_code ?? $employee->user_id }}</small>
                         <span class="badge {{ $employee->status === 'Đang làm' ? 'dang-lam' : ($employee->status === 'Tạm nghỉ' ? 'tam-nghi' : 'nghi-viec') }} ml-2 inline-block">{{ $employee->status }}</span>
                     </div>
                 </div>
@@ -290,7 +290,7 @@ function filterAndSortEmployees() {
     let filtered = employeesData.filter(emp => {
         const matchSearch = !searchText ||
             emp.user?.name?.toLowerCase().includes(searchText) ||
-            emp.user_id?.toLowerCase().includes(searchText);
+            (emp.employee_code || emp.user_id || '').toLowerCase().includes(searchText);
 
         const matchDept = !deptFilter || emp.department_id === deptFilter;
         const matchStatus = !statusFilter || emp.status === statusFilter;
@@ -306,8 +306,8 @@ function filterAndSortEmployees() {
                 aVal = a.user?.name || '';
                 bVal = b.user?.name || '';
             } else if (sortBy.startsWith('user_id')) {
-                aVal = a.user_id || '';
-                bVal = b.user_id || '';
+                aVal = a.employee_code || a.user_id || '';
+                bVal = b.employee_code || b.user_id || '';
             } else if (sortBy.startsWith('start_date')) {
                 aVal = a.start_date || '';
                 bVal = b.start_date || '';
@@ -342,7 +342,7 @@ function filterAndSortEmployees() {
                      class="w-9 h-9 rounded-full avatar-thumb">
                 <div class="flex-1">
                     <div class="font-semibold text-gray-800">${emp.user?.name || ''}</div>
-                    <small class="text-gray-500">${emp.user_id}</small>
+                    <small class="text-gray-500">${emp.employee_code || emp.user_id || ''}</small>
                     <span class="badge ${emp.status === 'Đang làm' ? 'dang-lam' : (emp.status === 'Tạm nghỉ' ? 'tam-nghi' : 'nghi-viec')} ml-2 inline-block">${emp.status}</span>
                 </div>
             </div>
@@ -446,7 +446,7 @@ function selectEmployee(el, userId) {
     const fields = {
         'employeeId': user.user_id || '',
         'name': user.name || '',
-        'employeeIdDisplay': user.user_id || '',
+        'employeeIdDisplay': emp.employee_code || user.user_id || '',
         'deptName': dept.name || '',
         'position': emp.position || '',
         'identityCard': emp.identity_card || '',

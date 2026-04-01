@@ -9,6 +9,7 @@ use App\Models\Candidate;
 use App\Models\Interview;
 use App\Models\Employee;
 use App\Models\Department;
+use App\Models\RecruitmentPeriod;
 use App\Models\User;
 use App\Notifications\CandidateStatusUpdatedNotification;
 use App\Notifications\InterviewResultUpdatedNotification;
@@ -47,6 +48,28 @@ class RecruitmentController extends Controller
         return $hasColumn;
     }
 
+    private function hasRecruitmentPeriodColumn(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn('job_postings', 'recruitment_period_id');
+        }
+
+        return $hasColumn;
+    }
+
+    private function hasRecruitmentPeriodsTable(): bool
+    {
+        static $hasTable = null;
+
+        if ($hasTable === null) {
+            $hasTable = Schema::hasTable('recruitment_periods');
+        }
+
+        return $hasTable;
+    }
+
     private function normalizeCandidateStatus(?string $status): ?string
     {
         if ($status === null) {
@@ -73,63 +96,223 @@ class RecruitmentController extends Controller
         return $resultMap[$result] ?? $result;
     }
 
-    public function index()
+    private function normalizeJobStatus(?string $status): ?string
     {
+        if ($status === null) {
+            return null;
+        }
+
+        $statusMap = [
+            'Đang tuyển' => 'active',
+            'Đã đóng' => 'closed',
+            'Đã tuyển đủ' => 'filled',
+        ];
+
+        return $statusMap[$status] ?? $status;
+    }
+
+    private function jobStatusVariants(string $status): array
+    {
+        $statusVariants = [
+            'active' => ['active', 'Đang tuyển'],
+            'closed' => ['closed', 'Đã đóng'],
+            'filled' => ['filled', 'Đã tuyển đủ'],
+        ];
+
+        return $statusVariants[$status] ?? [$status];
+    }
+
+    private function buildRecruitmentRedirectParams(Request $request, string $tab, ?string $periodId = null): array
+    {
+        $resolvedPeriodId = $periodId ?? $request->input('period_id') ?? $request->query('period_id');
+        $params = ['tab' => $tab];
+
+        if (!empty($resolvedPeriodId)) {
+            $params['period_id'] = $resolvedPeriodId;
+        }
+
+        return $params;
+    }
+
+    public function index(Request $request)
+    {
+        $supportsRecruitmentPeriods = $this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn();
+
+        $periods = collect();
+        if ($this->hasRecruitmentPeriodsTable()) {
+            $periods = RecruitmentPeriod::query()
+                ->withCount([
+                    'jobPostings as total_jobs_count',
+                    'jobPostings as active_jobs_count' => function ($query) {
+                        $query->whereIn('status', $this->jobStatusVariants('active'));
+                        if ($this->hasIsDeletedColumn()) {
+                            $query->where('is_deleted', false);
+                        }
+                    },
+                    'jobPostings as filled_jobs_count' => function ($query) {
+                        $query->whereIn('status', $this->jobStatusVariants('filled'));
+                        if ($this->hasIsDeletedColumn()) {
+                            $query->where('is_deleted', false);
+                        }
+                    },
+                    'jobPostings as closed_jobs_count' => function ($query) {
+                        $query->whereIn('status', $this->jobStatusVariants('closed'));
+                        if ($this->hasIsDeletedColumn()) {
+                            $query->where('is_deleted', false);
+                        }
+                    },
+                ])
+                ->orderByDesc('start_date')
+                ->orderByDesc('updated_at')
+                ->get();
+        }
+
+        $selectedPeriodId = (string) $request->query('period_id', '');
+        $selectedPeriod = $selectedPeriodId !== ''
+            ? $periods->firstWhere('period_id', $selectedPeriodId)
+            : null;
+
+        $jobSearch = trim((string) $request->query('job_search', ''));
+        $jobStatus = $this->normalizeJobStatus(trim((string) $request->query('job_status', ''))) ?? '';
+
         $jobPostingsQuery = JobPosting::query();
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $jobPostingsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
+        }
+
         if ($this->hasIsDeletedColumn()) {
             $jobPostingsQuery->orderBy('is_deleted');
+        }
+
+        if ($jobSearch !== '') {
+            $jobPostingsQuery->where(function ($query) use ($jobSearch) {
+                $query->where('title', 'like', '%' . $jobSearch . '%')
+                    ->orWhere('job_id', 'like', '%' . $jobSearch . '%');
+            });
+        }
+
+        if ($jobStatus !== '') {
+            if ($jobStatus === 'deleted' && $this->hasIsDeletedColumn()) {
+                $jobPostingsQuery->where('is_deleted', true);
+            } else {
+                $jobPostingsQuery->whereIn('status', $this->jobStatusVariants($jobStatus));
+                if ($this->hasIsDeletedColumn()) {
+                    $jobPostingsQuery->where('is_deleted', false);
+                }
+            }
         }
 
         $jobPostings = $jobPostingsQuery
             ->orderByDesc('updated_at')
             ->orderByDesc('job_id')
-            ->paginate(10);
+            ->paginate(10, ['*'], 'jobs_page')
+            ->withQueryString();
 
-        $activeJobPostingsQuery = JobPosting::where('status', 'active');
+        $allJobsCountQuery = JobPosting::query();
+        if ($this->hasIsDeletedColumn()) {
+            $allJobsCountQuery->where('is_deleted', false);
+        }
+
+        $allJobsCount = (clone $allJobsCountQuery)->count();
+        $allOpenJobsCount = (clone $allJobsCountQuery)
+            ->whereIn('status', $this->jobStatusVariants('active'))
+            ->count();
+
+        $closedAndFilledVariants = array_values(array_unique(array_merge(
+            $this->jobStatusVariants('closed'),
+            $this->jobStatusVariants('filled')
+        )));
+
+        $allClosedJobsCount = (clone $allJobsCountQuery)
+            ->whereIn('status', $closedAndFilledVariants)
+            ->count();
+
+        $activeJobPostingsQuery = JobPosting::whereIn('status', $this->jobStatusVariants('active'));
         if ($this->hasIsDeletedColumn()) {
             $activeJobPostingsQuery->where('is_deleted', false);
+        }
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $activeJobPostingsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
         }
 
         $activeJobPostings = $activeJobPostingsQuery
             ->orderBy('title')
             ->get();
+
         $candidatesQuery = Candidate::with(['user', 'job']);
         if ($this->hasIsDeletedColumn()) {
             $candidatesQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM job_postings jp WHERE jp.job_id = candidates.job_id AND jp.is_deleted = 1) THEN 1 ELSE 0 END");
         }
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $candidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
+                $query->where('recruitment_period_id', $selectedPeriod->period_id);
+            });
+        }
         $candidates = $candidatesQuery
             ->orderByDesc('updated_at')
-            ->paginate(10);
+            ->paginate(10, ['*'], 'candidates_page')
+            ->withQueryString();
 
         $interviewsQuery = Interview::with(['candidate', 'job', 'interviewer']);
         if ($this->hasIsDeletedColumn()) {
             $interviewsQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM candidates c JOIN job_postings jp ON jp.job_id = c.job_id WHERE c.user_id = interviews.user_id AND jp.is_deleted = 1) OR notes LIKE '%[JOB_DELETED]%' THEN 1 ELSE 0 END");
         }
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $interviewsQuery->whereHas('job', function ($query) use ($selectedPeriod) {
+                $query->where('recruitment_period_id', $selectedPeriod->period_id);
+            });
+        }
         $interviews = $interviewsQuery
             ->orderByDesc('updated_at')
-            ->paginate(10);
-        $interviewCandidates = Candidate::with('user')
-            ->where('status', 'Phỏng vấn')
-            ->get();
+            ->paginate(10, ['*'], 'interviews_page')
+            ->withQueryString();
+
+        $interviewCandidatesQuery = Candidate::with('user')->where('status', 'Phỏng vấn');
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $interviewCandidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
+                $query->where('recruitment_period_id', $selectedPeriod->period_id);
+            });
+        }
+        $interviewCandidates = $interviewCandidatesQuery->get();
+
         $candidatePositions = Candidate::query()
             ->whereNotNull('position_applied')
             ->where('position_applied', '!=', '')
             ->distinct()
             ->orderBy('position_applied')
             ->pluck('position_applied');
+
         $employees = Employee::where('status', 'Đang làm')->get();
-        $hiringCandidates = Candidate::with([
+
+        $hiringCandidatesQuery = Candidate::with([
             'user',
             'job',
             'interviews' => fn ($query) => $query->orderByDesc('scheduled_at'),
-        ])
-            ->whereHas('interviews', fn ($query) => $query->where('result', 'pass'))
+        ])->whereHas('interviews', fn ($query) => $query->where('result', 'pass'));
+
+        if ($supportsRecruitmentPeriods && $selectedPeriod) {
+            $hiringCandidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
+                $query->where('recruitment_period_id', $selectedPeriod->period_id);
+            });
+        }
+
+        $hiringCandidates = $hiringCandidatesQuery
             ->orderByDesc('updated_at')
-            ->paginate(10, ['*'], 'hiring_page');
+            ->paginate(10, ['*'], 'hiring_page')
+            ->withQueryString();
+
         $departments = Department::orderBy('name')->get();
 
         return view('recruitment', [
+            'periods' => $periods,
+            'selectedPeriod' => $selectedPeriod,
             'jobPostings' => $jobPostings,
+            'jobSearch' => $jobSearch,
+            'jobStatus' => $jobStatus,
+            'supportsRecruitmentPeriods' => $supportsRecruitmentPeriods,
+            'allJobsCount' => $allJobsCount,
+            'allOpenJobsCount' => $allOpenJobsCount,
+            'allClosedJobsCount' => $allClosedJobsCount,
             'activeJobPostings' => $activeJobPostings,
             'candidates' => $candidates,
             'candidatePositions' => $candidatePositions,
@@ -141,10 +324,71 @@ class RecruitmentController extends Controller
         ]);
     }
 
+    // ===== RECRUITMENT PERIODS =====
+    public function storePeriod(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'status' => 'required|in:draft,open,closed',
+            'notes' => 'nullable|string',
+        ]);
+
+        $period = RecruitmentPeriod::create($validated);
+
+        return redirect()->route('recruitment.index', ['period_id' => $period->period_id, 'tab' => 'jobs'])
+            ->with('success', 'Tạo kỳ tuyển dụng thành công');
+    }
+
+    public function updatePeriod(Request $request, string $periodId)
+    {
+        $period = RecruitmentPeriod::where('period_id', $periodId)->firstOrFail();
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'start_date' => 'required|date',
+            'end_date' => 'required|date|after_or_equal:start_date',
+            'status' => 'required|in:draft,open,closed',
+            'notes' => 'nullable|string',
+        ]);
+
+        $period->update($validated);
+
+        return redirect()->route('recruitment.index', ['period_id' => $period->period_id, 'tab' => 'jobs'])
+            ->with('success', 'Cập nhật kỳ tuyển dụng thành công');
+    }
+
+    public function destroyPeriod(string $periodId)
+    {
+        $period = RecruitmentPeriod::where('period_id', $periodId)->firstOrFail();
+
+        if (JobPosting::where('recruitment_period_id', $period->period_id)->exists()) {
+            return redirect()->route('recruitment.index', ['period_id' => $period->period_id, 'tab' => 'jobs'])
+                ->withErrors(['period' => 'Kỳ tuyển dụng vẫn còn tin tuyển dụng, không thể xóa.']);
+        }
+
+        $period->delete();
+
+        $nextPeriodId = RecruitmentPeriod::query()
+            ->orderByDesc('start_date')
+            ->value('period_id');
+
+        $params = $nextPeriodId ? ['period_id' => $nextPeriodId, 'tab' => 'jobs'] : ['tab' => 'jobs'];
+
+        return redirect()->route('recruitment.index', $params)
+            ->with('success', 'Đã xóa kỳ tuyển dụng thành công');
+    }
+
     // ===== JOB POSTINGS =====
     public function storeJob(Request $request)
     {
+        $periodValidationRules = $this->hasRecruitmentPeriodColumn()
+            ? ['required', Rule::exists('recruitment_periods', 'period_id')]
+            : ['nullable'];
+
         $validated = $request->validate([
+            'recruitment_period_id' => $periodValidationRules,
             'title' => 'required|string|max:255',
             'salary_min' => 'required|integer|min:0',
             'salary_max' => 'required|integer|gte:salary_min|min:0',
@@ -167,20 +411,29 @@ class RecruitmentController extends Controller
 
         JobPosting::create($validated);
 
-        return redirect()->route('recruitment.index')->with('success', 'Thêm tin tuyển dụng thành công');
+        $redirectPeriodId = $validated['recruitment_period_id'] ?? null;
+
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs', $redirectPeriodId))
+            ->with('success', 'Thêm tin tuyển dụng thành công');
     }
 
     public function updateJob(Request $request, $jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
+        $redirectPeriodId = (string) ($request->input('recruitment_period_id') ?: $job->recruitment_period_id);
 
         if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
-            return redirect()->route('recruitment.index')->withErrors([
+            return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs', $redirectPeriodId))->withErrors([
                 'job' => 'Tin tuyển dụng đã xóa chỉ có thể xem, không thể chỉnh sửa.',
             ]);
         }
 
+        $periodValidationRules = $this->hasRecruitmentPeriodColumn()
+            ? ['required', Rule::exists('recruitment_periods', 'period_id')]
+            : ['nullable'];
+
         $validated = $request->validate([
+            'recruitment_period_id' => $periodValidationRules,
             'title' => 'sometimes|required|string|max:255',
             'salary_min' => 'sometimes|required|integer|min:0',
             'salary_max' => 'sometimes|required|integer|min:0',
@@ -206,6 +459,7 @@ class RecruitmentController extends Controller
         }
 
         $job->update([
+            'recruitment_period_id' => $validated['recruitment_period_id'] ?? $job->recruitment_period_id,
             'title' => $validated['title'] ?? $job->title,
             'salary_min' => $salaryMin,
             'salary_max' => $salaryMax,
@@ -216,15 +470,20 @@ class RecruitmentController extends Controller
             'status' => $statusMap[$validated['status']] ?? $validated['status'],
         ]);
 
-        return redirect()->route('recruitment.index')->with('success', 'Cập nhật tin tuyển dụng thành công');
+        return redirect()->route(
+            'recruitment.index',
+            $this->buildRecruitmentRedirectParams($request, 'jobs', $validated['recruitment_period_id'] ?? $job->recruitment_period_id)
+        )
+            ->with('success', 'Cập nhật tin tuyển dụng thành công');
     }
 
-    public function destroyJob($jobId)
+    public function destroyJob(Request $request, $jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
+        $redirectPeriodId = (string) ($request->input('period_id') ?: $job->recruitment_period_id);
 
         if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
-            return redirect()->route('recruitment.index')->with(
+            return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs', $redirectPeriodId))->with(
                 'success',
                 'Tin tuyển dụng này đã ở trạng thái đã xóa.'
             );
@@ -280,7 +539,7 @@ class RecruitmentController extends Controller
 
         $job->update($jobUpdatePayload);
 
-        return redirect()->route('recruitment.index')->with(
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs', $redirectPeriodId))->with(
             'success',
             "Đã chuyển tin tuyển dụng sang trạng thái Đã xóa. Giữ lại {$relatedCandidates} ứng viên và {$relatedInterviews} lịch phỏng vấn liên quan."
         );
@@ -353,7 +612,8 @@ class RecruitmentController extends Controller
 
         $this->ensureInterviewRecordForCandidate($user->user_id, $candidateStatus);
 
-        return redirect()->route('recruitment.index')->with('success', 'Thêm ứng viên thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+            ->with('success', 'Thêm ứng viên thành công');
     }
 
     public function updateCandidate(Request $request, $candidateId)
@@ -417,15 +677,17 @@ class RecruitmentController extends Controller
             ));
         }
 
-        return redirect()->route('recruitment.index')->with('success', 'Cập nhật ứng viên thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+            ->with('success', 'Cập nhật ứng viên thành công');
     }
 
-    public function destroyCandidate($candidateId)
+    public function destroyCandidate(Request $request, $candidateId)
     {
         $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
         $candidate->delete();
 
-        return redirect()->route('recruitment.index')->with('success', 'Xóa ứng viên thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+            ->with('success', 'Xóa ứng viên thành công');
     }
 
     public function serveCandidateCv(string $candidateId)
@@ -499,7 +761,8 @@ class RecruitmentController extends Controller
             ));
         }
 
-        return redirect()->route('recruitment.index')->with('success', 'Thêm lịch phỏng vấn thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
+            ->with('success', 'Thêm lịch phỏng vấn thành công');
     }
 
     public function updateInterview(Request $request, $interviewId)
@@ -567,15 +830,17 @@ class RecruitmentController extends Controller
             ));
         }
 
-        return redirect()->route('recruitment.index')->with('success', 'Cập nhật lịch phỏng vấn thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
+            ->with('success', 'Cập nhật lịch phỏng vấn thành công');
     }
 
-    public function destroyInterview($interviewId)
+    public function destroyInterview(Request $request, $interviewId)
     {
         $interview = Interview::where('interview_id', $interviewId)->firstOrFail();
         $interview->delete();
 
-        return redirect()->route('recruitment.index')->with('success', 'Xóa lịch phỏng vấn thành công');
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
+            ->with('success', 'Xóa lịch phỏng vấn thành công');
     }
 
     public function submitApplication(Request $request)

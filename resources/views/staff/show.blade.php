@@ -45,7 +45,7 @@
                 </div>
                 <div>
                     <p class="text-sm text-gray-500 font-medium">Mã Nhân Viên</p>
-                    <p class="text-lg text-gray-900 font-semibold">{{ $employee->user_id }}</p>
+                    <p class="text-lg text-gray-900 font-semibold">{{ $employee->employee_code ?? $employee->user_id }}</p>
                 </div>
                 <div>
                     <p class="text-sm text-gray-500 font-medium">Email</p>

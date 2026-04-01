@@ -13,7 +13,7 @@ class Employee extends Model
     public $timestamps = true;
 
     protected $fillable = [
-        'user_id', 'position', 'identity_card', 'marital_status', 'hometown',
+        'user_id', 'employee_code', 'position', 'identity_card', 'marital_status', 'hometown',
         'current_address', 'start_date', 'department_id', 'ethnicity', 'religion',
         'nationality', 'education_level', 'previous_experience', 'avatar_path', 'cv_path', 'contract_path', 'notes', 'status',
         'degree', 'school_name', 'certificates', 'language_certificates'

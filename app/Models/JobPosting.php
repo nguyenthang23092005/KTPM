@@ -34,7 +34,7 @@ class JobPosting extends Model
     }
 
     protected $fillable = [
-        'job_id', 'title', 'salary_min', 'salary_max', 'quantity',
+        'job_id', 'recruitment_period_id', 'title', 'salary_min', 'salary_max', 'quantity',
         'description', 'requirements', 'deadline', 'status', 'is_deleted'
     ];
 
@@ -46,6 +46,11 @@ class JobPosting extends Model
     public function candidates()
     {
         return $this->hasMany(Candidate::class, 'job_id', 'job_id');
+    }
+
+    public function recruitmentPeriod()
+    {
+        return $this->belongsTo(RecruitmentPeriod::class, 'recruitment_period_id', 'period_id');
     }
 
     /**

@@ -9,6 +9,7 @@ use App\Models\Department;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -300,6 +301,10 @@ class StaffController extends Controller
             'previous_experience' => $validated['previous_experience'] ?? null,
             'notes' => $validated['notes'] ?? null,
         ];
+
+        if (Schema::hasColumn('employees', 'employee_code')) {
+            $employeeData['employee_code'] = $userId;
+        }
 
         if ($request->hasFile('avatar_path')) {
             $avatarFile = $request->file('avatar_path');

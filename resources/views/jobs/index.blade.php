@@ -33,6 +33,38 @@
     <div class="max-w-7xl mx-auto px-4 py-12">
         <h1 class="text-3xl font-bold mb-8">Danh sách việc làm</h1>
 
+        @if(($supportsRecruitmentPeriods ?? false) && isset($periods) && $periods->count() > 0)
+            <div class="mb-6 rounded-lg border border-purple-100 bg-white p-4">
+                <div class="flex items-center justify-between flex-wrap gap-2 mb-3">
+                    <h2 class="text-sm font-semibold text-gray-700">Lọc theo kỳ tuyển dụng</h2>
+                    @if($selectedPeriod)
+                        <span class="text-xs px-3 py-1 rounded-full bg-purple-100 text-purple-700">
+                            Đang xem: {{ $selectedPeriod->name }}
+                        </span>
+                    @endif
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <a
+                        href="{{ route('jobs.index') }}"
+                        class="px-3 py-1.5 rounded-full text-sm border {{ !$selectedPeriod ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-700' }}"
+                    >
+                        Tất cả kỳ
+                    </a>
+
+                    @foreach($periods as $period)
+                        <a
+                            href="{{ route('jobs.index', ['period_id' => $period->period_id]) }}"
+                            class="px-3 py-1.5 rounded-full text-sm border {{ $selectedPeriod && $selectedPeriod->period_id === $period->period_id ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-700' }}"
+                        >
+                            {{ $period->name }}
+                            <span class="ml-1 text-xs opacity-80">({{ $period->active_jobs_count ?? 0 }})</span>
+                        </a>
+                    @endforeach
+                </div>
+            </div>
+        @endif
+
         @if ($jobs->count() > 0)
             <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-1">
                 @foreach ($jobs as $job)
@@ -48,6 +80,11 @@
                                     @endif
                                 </div>
                                 <p class="text-gray-600">{{ $job->department }}</p>
+                                @if($supportsRecruitmentPeriods ?? false)
+                                    <p class="text-sm text-purple-700 mt-1">
+                                        Kỳ tuyển dụng: {{ $job->recruitmentPeriod?->name ?? 'Chưa gán kỳ' }}
+                                    </p>
+                                @endif
                             </div>
                             <span class="text-green-600 font-bold whitespace-nowrap ml-4">{{ number_format($job->salary_min) }} - {{ number_format($job->salary_max) }} VND</span>
                         </div>

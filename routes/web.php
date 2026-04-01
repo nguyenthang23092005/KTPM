@@ -13,6 +13,7 @@ use App\Http\Controllers\admin\RecruitmentController;
 use App\Http\Controllers\NotificationController;
 use App\Models\Candidate;
 use App\Models\JobPosting;
+use App\Models\RecruitmentPeriod;
 use App\Models\User;
 
 // Static CSS route
@@ -27,17 +28,54 @@ Route::get('/', function () {
 })->name('home');
 
 Route::get('/jobs', function () {
-    $jobsQuery = \App\Models\JobPosting::where('status', 'active');
+    $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
+        && Schema::hasColumn('job_postings', 'recruitment_period_id');
+
+    $selectedPeriodId = trim((string) request()->query('period_id', ''));
+    $periods = collect();
+
+    if ($supportsRecruitmentPeriods) {
+        $periods = RecruitmentPeriod::query()
+            ->withCount([
+                'jobPostings as active_jobs_count' => function ($query) {
+                    $query->where('status', 'active');
+
+                    if (Schema::hasColumn('job_postings', 'is_deleted')) {
+                        $query->where('is_deleted', false);
+                    }
+                },
+            ])
+            ->orderByDesc('start_date')
+            ->orderByDesc('updated_at')
+            ->get();
+    }
+
+    $selectedPeriod = $selectedPeriodId !== ''
+        ? $periods->firstWhere('period_id', $selectedPeriodId)
+        : null;
+
+    $jobsQuery = JobPosting::query()
+        ->where('status', 'active');
 
     if (Schema::hasColumn('job_postings', 'is_deleted')) {
         $jobsQuery->where('is_deleted', false);
     }
 
+    if ($supportsRecruitmentPeriods) {
+        $jobsQuery->with('recruitmentPeriod');
+
+        if ($selectedPeriod) {
+            $jobsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
+        }
+    }
+
     $jobs = $jobsQuery
         ->orderByRaw('CASE WHEN deadline IS NOT NULL AND deadline < CURRENT_DATE THEN 1 ELSE 0 END')
         ->orderBy('deadline')
-        ->paginate(10);
-    return view('jobs.index', compact('jobs'));
+        ->paginate(10)
+        ->withQueryString();
+
+    return view('jobs.index', compact('jobs', 'periods', 'selectedPeriod', 'supportsRecruitmentPeriods'));
 })->name('jobs.index');
 
 Route::get('/jobs/{id}', function ($id) {
@@ -216,6 +254,11 @@ Route::middleware(['auth'])->group(function () {
 
         // Admin-only recruitment mutations
         Route::middleware('role:admin')->group(function () {
+            // Recruitment Periods
+            Route::post('/period', [RecruitmentController::class, 'storePeriod'])->name('storePeriod');
+            Route::post('/period/{periodId}', [RecruitmentController::class, 'updatePeriod'])->name('updatePeriod');
+            Route::delete('/period/{periodId}', [RecruitmentController::class, 'destroyPeriod'])->name('destroyPeriod');
+
             // Job Postings
             Route::post('/job', [RecruitmentController::class, 'storeJob'])->name('storeJob');
             Route::post('/job/{jobId}', [RecruitmentController::class, 'updateJob'])->name('updateJob');

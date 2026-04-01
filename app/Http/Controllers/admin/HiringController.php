@@ -9,9 +9,44 @@ use App\Models\Employee;
 use App\Notifications\CandidatePromotedToStaffNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class HiringController extends Controller
 {
+    private function generateEmployeeCode(): string
+    {
+        $maxFromUsers = DB::table('users')
+            ->where('user_id', 'like', 'ST_%')
+            ->selectRaw("COALESCE(MAX(CAST(SUBSTRING(user_id, 4) AS UNSIGNED)), 0) as max_num")
+            ->lockForUpdate()
+            ->value('max_num');
+
+        $maxFromEmployeeCodes = 0;
+        if (Schema::hasColumn('employees', 'employee_code')) {
+            $maxFromEmployeeCodes = DB::table('employees')
+                ->where('employee_code', 'like', 'ST_%')
+                ->selectRaw("COALESCE(MAX(CAST(SUBSTRING(employee_code, 4) AS UNSIGNED)), 0) as max_num")
+                ->lockForUpdate()
+                ->value('max_num');
+        }
+
+        $next = max((int) $maxFromUsers, (int) $maxFromEmployeeCodes) + 1;
+
+        return sprintf('ST_%03d', $next);
+    }
+
+    private function recruitmentRedirectParams(Request $request): array
+    {
+        $params = ['tab' => $request->input('tab', 'hiring')];
+        $periodId = $request->input('period_id');
+
+        if (!empty($periodId)) {
+            $params['period_id'] = $periodId;
+        }
+
+        return $params;
+    }
+
     public function index()
     {
         $candidates = Candidate::with([
@@ -44,13 +79,13 @@ class HiringController extends Controller
 
         $hasPassInterview = $candidate->interviews->contains(fn ($interview) => $interview->result === 'pass');
         if (!$hasPassInterview) {
-            return redirect()->route('recruitment.index', ['tab' => 'hiring'])->withErrors([
+            return redirect()->route('recruitment.index', $this->recruitmentRedirectParams($request))->withErrors([
                 'promote' => 'Ứng viên này chưa có kết quả phỏng vấn đạt, không thể nâng role.',
             ]);
         }
 
         if (!$candidate->user) {
-            return redirect()->route('recruitment.index', ['tab' => 'hiring'])->withErrors([
+            return redirect()->route('recruitment.index', $this->recruitmentRedirectParams($request))->withErrors([
                 'promote' => 'Không tìm thấy tài khoản ứng viên để nâng role.',
             ]);
         }
@@ -75,15 +110,21 @@ class HiringController extends Controller
             $promotionNote = 'Nâng role từ ứng viên vào lúc ' . now()->format('d/m/Y H:i');
             $mergedNotes = trim(($employee?->notes ? $employee->notes . "\n" : '') . $promotionNote);
 
+            $employeePayload = [
+                'department_id' => $departmentId,
+                'position' => $position,
+                'start_date' => $employee?->start_date?->toDateString() ?? now()->toDateString(),
+                'status' => 'Đang làm',
+                'notes' => $mergedNotes,
+            ];
+
+            if (Schema::hasColumn('employees', 'employee_code')) {
+                $employeePayload['employee_code'] = $employee?->employee_code ?: $this->generateEmployeeCode();
+            }
+
             Employee::updateOrCreate(
                 ['user_id' => $user->user_id],
-                [
-                    'department_id' => $departmentId,
-                    'position' => $position,
-                    'start_date' => $employee?->start_date?->toDateString() ?? now()->toDateString(),
-                    'status' => 'Đang làm',
-                    'notes' => $mergedNotes,
-                ]
+                $employeePayload
             );
 
             $candidate->update([
@@ -98,6 +139,7 @@ class HiringController extends Controller
             $user->notify(new CandidatePromotedToStaffNotification($position, $departmentName));
         });
 
-        return redirect()->route('recruitment.index', ['tab' => 'hiring'])->with('success', 'Đã nâng role ứng viên thành nhân viên thành công.');
+        return redirect()->route('recruitment.index', $this->recruitmentRedirectParams($request))
+            ->with('success', 'Đã nâng role ứng viên thành nhân viên thành công.');
     }
 }
