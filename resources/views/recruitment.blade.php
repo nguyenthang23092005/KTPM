@@ -302,6 +302,12 @@
 
         <div class="period-info-panel border rounded-lg p-4 bg-gray-50 mb-6">
             <h2 class="text-xl font-semibold text-gray-900 mb-4">Thông tin kỳ tuyển dụng</h2>
+            
+            @if(auth()->check() && auth()->user()->role === 'staff')
+                <div class="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 mb-4">
+                    Trưởng phòng chỉ được sử dụng kỳ tuyển dụng có sẵn do quản trị viên tạo.
+                </div>
+            @endif
 
             @if(auth()->check() && auth()->user()->role === 'admin' && $supportsRecruitmentPeriods)
                 <div
@@ -395,7 +401,9 @@
                 <button type="button" data-tab="jobs" class="tab-btn px-4 py-2 border-b-2 font-medium" onclick="switchTab(event, 'jobs')">Quản lý tin tuyển dụng</button>
                 <button type="button" data-tab="candidates" class="tab-btn px-4 py-2 border-b-2 font-medium" onclick="switchTab(event, 'candidates')">Quản lý ứng viên</button>
                 <button type="button" data-tab="interviews" class="tab-btn px-4 py-2 border-b-2 font-medium" onclick="switchTab(event, 'interviews')">Quản lý phỏng vấn</button>
-                <button type="button" data-tab="hiring" class="tab-btn px-4 py-2 border-b-2 font-medium" onclick="switchTab(event, 'hiring')">Hoàn tất tuyển dụng</button>
+                @if(auth()->check() && auth()->user()->role === 'admin')
+                    <button type="button" data-tab="hiring" class="tab-btn px-4 py-2 border-b-2 font-medium" onclick="switchTab(event, 'hiring')">Hoàn tất tuyển dụng</button>
+                @endif
             </div>
 
             <div id="jobs" class="tab-content">
@@ -528,11 +536,12 @@
                                 <tr>
                                     <th class="px-4 py-2 text-left">Mã tin</th>
                                     <th class="px-4 py-2 text-left">Tiêu đề</th>
+                                    <th class="px-4 py-2 text-left">Phòng ban</th>
                                     <th class="px-4 py-2 text-left">Mức lương</th>
                                     <th class="px-4 py-2 text-left">Số lượng</th>
                                     <th class="px-4 py-2 text-left">Hạn nộp</th>
                                     <th class="px-4 py-2 text-left">Trạng thái</th>
-                                    @if(auth()->check() && auth()->user()->role === 'admin')
+                                    @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                         <th class="px-4 py-2 text-center">Hành động</th>
                                     @endif
                                 </tr>
@@ -550,6 +559,7 @@
                                     <tr class="border-b hover:bg-gray-50">
                                         <td class="px-4 py-2 font-medium">{{ $job->job_id }}</td>
                                         <td class="px-4 py-2">{{ $job->title }}</td>
+                                        <td class="px-4 py-2">{{ $job->department ?? '-' }}</td>
                                         <td class="px-4 py-2">{{ number_format($job->salary_min) }} - {{ number_format($job->salary_max) }}đ</td>
                                         <td class="px-4 py-2">{{ $job->quantity }}</td>
                                         <td class="px-4 py-2">{{ $job->deadline?->format('d/m/Y') ?? '-' }}</td>
@@ -568,43 +578,57 @@
                                             @endif
                                         </td>
 
-                                        @if(auth()->check() && auth()->user()->role === 'admin')
+                                        @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                             <td class="px-4 py-2">
-                                                <div class="flex items-center justify-center gap-2 text-xs">
-                                                    @if(($job->is_deleted ?? false) === false)
-                                                        <button
-                                                            type="button"
-                                                            data-job-id="{{ $job->job_id }}"
-                                                            data-period-id="{{ $job->recruitment_period_id }}"
-                                                            data-title="{{ e($job->title) }}"
-                                                            data-salary-min="{{ (int) $job->salary_min }}"
-                                                            data-salary-max="{{ (int) $job->salary_max }}"
-                                                            data-quantity="{{ $job->quantity }}"
-                                                            data-deadline="{{ $job->deadline?->format('Y-m-d') }}"
-                                                            data-description="{{ e($job->description ?? '') }}"
-                                                            data-requirements="{{ e($job->requirements ?? '') }}"
-                                                            data-status="{{ $normalizedJobStatus }}"
-                                                            onclick="startEditJobFromButton(this)"
-                                                            class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                                        >Chỉnh sửa</button>
+                                                @php
+                                                    $canManageThisJob =
+                                                        auth()->user()->role === 'admin'
+                                                        || (
+                                                            $isDepartmentManager
+                                                            && ($job->department ?? null) === $managedDepartmentName
+                                                        );
+                                                @endphp
 
-                                                        <form method="POST" action="{{ route('recruitment.destroyJob', ['jobId' => $job->job_id]) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa tin tuyển dụng này?')">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
-                                                            <input type="hidden" name="tab" value="jobs" class="js-current-tab-input">
-                                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
-                                                        </form>
-                                                    @else
-                                                        <span class="text-gray-500">Chỉ xem</span>
-                                                    @endif
-                                                </div>
+                                                @if($canManageThisJob)
+                                                    <div class="flex items-center justify-center gap-2 text-xs">
+                                                        @if(($job->is_deleted ?? false) === false)
+                                                            <button
+                                                                type="button"
+                                                                data-job-id="{{ $job->job_id }}"
+                                                                data-period-id="{{ $job->recruitment_period_id }}"
+                                                                data-title="{{ e($job->title) }}"
+                                                                data-department="{{ $job->department }}"
+                                                                data-salary-min="{{ (int) $job->salary_min }}"
+                                                                data-salary-max="{{ (int) $job->salary_max }}"
+                                                                data-quantity="{{ $job->quantity }}"
+                                                                data-deadline="{{ $job->deadline?->format('Y-m-d') }}"
+                                                                data-description="{{ e($job->description ?? '') }}"
+                                                                data-requirements="{{ e($job->requirements ?? '') }}"
+                                                                data-status="{{ $normalizedJobStatus }}"
+                                                                onclick="startEditJobFromButton(this)"
+                                                                class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                                            >Chỉnh sửa</button>
+
+                                                            <form method="POST" action="{{ route('recruitment.destroyJob', ['jobId' => $job->job_id]) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa tin tuyển dụng này?')">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
+                                                                <input type="hidden" name="tab" value="jobs" class="js-current-tab-input">
+                                                                <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
+                                                            </form>
+                                                        @else
+                                                            <span class="text-gray-500">Chỉ xem</span>
+                                                        @endif
+                                                    </div>
+                                                @else
+                                                    <span class="text-gray-400 text-xs">-</span>
+                                                @endif
                                             </td>
                                         @endif
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ auth()->check() && auth()->user()->role === 'admin' ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-500">
+                                        <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">
                                             Chưa có tin tuyển dụng phù hợp bộ lọc.
                                         </td>
                                     </tr>
@@ -619,7 +643,7 @@
                         </div>
                     @endif
 
-                    @if(auth()->check() && auth()->user()->role === 'admin')
+                    @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                         <form
                             id="jobForm"
                             method="POST"
@@ -653,6 +677,23 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Tiêu đề</label>
                                     <input id="job_title" name="title" type="text" class="w-full p-2 border border-gray-300 rounded" required>
+                                </div>
+                                <div>
+                                    <label for="department" class="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
+
+                                    @if(auth()->user()->role === 'admin')
+                                        <select name="department" id="department" class="w-full p-2 border border-gray-300 rounded" required>
+                                            <option value="">-- Chọn phòng ban --</option>
+                                            @foreach($departments as $department)
+                                                <option value="{{ $department->name }}">
+                                                    {{ $department->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    @else
+                                        <input type="text" class="w-full p-2 border border-gray-300 rounded bg-gray-100" value="{{ $managedDepartmentName }}" readonly>
+                                        <input type="hidden" name="department" value="{{ $managedDepartmentName }}">
+                                    @endif
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
@@ -705,9 +746,10 @@
                                 <th class="px-4 py-2 text-left">Email</th>
                                 <th class="px-4 py-2 text-left">SĐT</th>
                                 <th class="px-4 py-2 text-left">Vị trí</th>
+                                <th class="px-4 py-2 text-left">Phòng ban</th>
                                 <th class="px-4 py-2 text-left">CV</th>
                                 <th class="px-4 py-2 text-left">Trạng thái</th>
-                                @if(auth()->check() && auth()->user()->role === 'admin')
+                                @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                     <th class="px-4 py-2 text-center">Hành động</th>
                                 @endif
                             </tr>
@@ -726,6 +768,7 @@
                                     <td class="px-4 py-2">{{ $candidate->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->phone ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->position_applied ?? '-' }}</td>
+                                    <td class="px-4 py-2">{{ $candidate->job?->department ?? '-' }}</td>
                                     <td class="px-4 py-2">
                                         @if($cvUrl)
                                             <a href="{{ $cvUrl }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline">Xem CV</a>
@@ -734,50 +777,68 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-2">{{ $candidate->status }}</td>
-                                    @if(auth()->check() && auth()->user()->role === 'admin')
+                                    @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                         <td class="px-4 py-2">
-                                            <div class="flex items-center justify-center gap-2 text-xs">
-                                                <button
-                                                    type="button"
-                                                    data-user-id="{{ $candidate->user_id }}"
-                                                    data-name="{{ $candidate->user?->name }}"
-                                                    data-email="{{ $candidate->user?->email }}"
-                                                    data-phone="{{ $candidate->user?->phone }}"
-                                                    data-position="{{ $candidate->position_applied }}"
-                                                    data-status="{{ $candidate->status }}"
-                                                    data-job-id="{{ $candidate->job_id }}"
-                                                    data-cv-url="{{ $cvUrl }}"
-                                                    data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
-                                                    onclick="editCandidateFromButton(this)"
-                                                    class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                                >Chỉnh sửa</button>
-                                                <form method="POST" action="{{ route('recruitment.destroyCandidate', $candidate->user_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa ứng viên?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
-                                                    <input type="hidden" name="tab" value="candidates" class="js-current-tab-input">
-                                                    <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
-                                                </form>
-                                            </div>
+                                            @php
+                                                $canManageThisCandidate =
+                                                    auth()->user()->role === 'admin'
+                                                    || (
+                                                        $isDepartmentManager
+                                                        && $candidate->job
+                                                        && $candidate->job->department === $managedDepartmentName
+                                                    );
+                                            @endphp
+
+                                            @if($canManageThisCandidate)
+                                                <div class="flex items-center justify-center gap-2 text-xs">
+                                                    <button
+                                                        type="button"
+                                                        data-user-id="{{ $candidate->user_id }}"
+                                                        data-name="{{ $candidate->user?->name }}"
+                                                        data-email="{{ $candidate->user?->email }}"
+                                                        data-phone="{{ $candidate->user?->phone }}"
+                                                        data-position="{{ $candidate->position_applied }}"
+                                                        data-status="{{ $candidate->status }}"
+                                                        data-job-id="{{ $candidate->job_id }}"
+                                                        data-cv-url="{{ $cvUrl }}"
+                                                        data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
+                                                        onclick="editCandidateFromButton(this)"
+                                                        class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                                    >Chỉnh sửa</button>
+
+                                                    @if(auth()->user()->role === 'admin')
+                                                        <form method="POST" action="{{ route('recruitment.destroyCandidate', $candidate->user_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa ứng viên?')">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
+                                                            <input type="hidden" name="tab" value="candidates" class="js-current-tab-input">
+                                                            <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
+                                                        </form>
+                                                    @endif
+                                                </div>
+                                            @else
+                                                <span class="text-gray-400 text-xs">-</span>
+                                            @endif
                                         </td>
                                     @endif
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ auth()->check() && auth()->user()->role === 'admin' ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-500">Chưa có ứng viên</td>
+                                    <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">Chưa có ứng viên</td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
 
-                @if(auth()->check() && auth()->user()->role === 'admin')
+                @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                     <form id="candidateForm" method="POST" action="{{ route('recruitment.storeCandidate') }}" enctype="multipart/form-data" class="border-t pt-6 space-y-4">
                         @csrf
                         <input type="hidden" id="candidate_user_id">
                         <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
                         <input type="hidden" name="tab" value="candidates" class="js-current-tab-input">
                         <h3 class="text-lg font-semibold text-gray-900">Thêm hoặc cập nhật ứng viên</h3>
+
                         <div class="grid grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Vị trí ứng tuyển</label>
@@ -839,10 +900,11 @@
                                 <th class="px-4 py-2 text-left">Tên</th>
                                 <th class="px-4 py-2 text-left">Email</th>
                                 <th class="px-4 py-2 text-left">SĐT</th>
+                                <th class="px-4 py-2 text-left">Phòng ban</th>
                                 <th class="px-4 py-2 text-left">Ngày và giờ</th>
                                 <th class="px-4 py-2 text-left">Kết quả</th>
                                 <th class="px-4 py-2 text-left">Ghi chú</th>
-                                @if(auth()->check() && auth()->user()->role === 'admin')
+                                @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                     <th class="px-4 py-2 text-center">Hành động</th>
                                 @endif
                             </tr>
@@ -864,48 +926,65 @@
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->phone ?? '-' }}</td>
+                                    <td class="px-4 py-2">{{ $interview->candidate?->job?->department ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->scheduled_at?->format('Y-m-d H:i') ?? '-' }}</td>
                                     <td class="px-4 py-2">
                                         <span class="px-2 py-1 rounded {{ $interviewResultClass }}">{{ $interviewResultLabel }}</span>
                                     </td>
                                     <td class="px-4 py-2">{{ $interview->notes ?? '-' }}</td>
-                                    @if(auth()->check() && auth()->user()->role === 'admin')
+                                    @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                         <td class="px-4 py-2">
-                                            <div class="flex items-center justify-center gap-2 text-xs">
-                                                <button
-                                                    type="button"
-                                                    data-interview-id="{{ $interview->interview_id }}"
-                                                    data-name="{{ $interview->candidate?->user?->name }}"
-                                                    data-email="{{ $interview->candidate?->user?->email }}"
-                                                    data-phone="{{ $interview->candidate?->user?->phone }}"
-                                                    data-date="{{ $interview->scheduled_at?->format('Y-m-d') }}"
-                                                    data-time="{{ $interview->scheduled_at?->format('H:i') }}"
-                                                    data-result="{{ $interviewResultLabel }}"
-                                                    data-notes="{{ $interview->notes }}"
-                                                    onclick="editInterviewFromButton(this)"
-                                                    class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                                                >Chỉnh sửa</button>
-                                                <form method="POST" action="{{ route('recruitment.destroyInterview', $interview->interview_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa lịch phỏng vấn?')">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
-                                                    <input type="hidden" name="tab" value="interviews" class="js-current-tab-input">
-                                                    <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
-                                                </form>
-                                            </div>
+                                            @php
+                                                $canManageThisInterview =
+                                                    auth()->user()->role === 'admin'
+                                                    || (
+                                                        $isDepartmentManager
+                                                        && $interview->candidate
+                                                        && $interview->candidate->job
+                                                        && ($interview->candidate->job->department ?? null) === $managedDepartmentName
+                                                    );
+                                            @endphp
+
+                                            @if($canManageThisInterview)
+                                                <div class="flex items-center justify-center gap-2 text-xs">
+                                                    <button
+                                                        type="button"
+                                                        data-interview-id="{{ $interview->interview_id }}"
+                                                        data-name="{{ $interview->candidate?->user?->name }}"
+                                                        data-email="{{ $interview->candidate?->user?->email }}"
+                                                        data-phone="{{ $interview->candidate?->user?->phone }}"
+                                                        data-date="{{ $interview->scheduled_at?->format('Y-m-d') }}"
+                                                        data-time="{{ $interview->scheduled_at?->format('H:i') }}"
+                                                        data-result="{{ $interviewResultLabel }}"
+                                                        data-notes="{{ $interview->notes }}"
+                                                        onclick="editInterviewFromButton(this)"
+                                                        class="px-2 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                                    >Chỉnh sửa</button>
+
+                                                    <form method="POST" action="{{ route('recruitment.destroyInterview', $interview->interview_id) }}" onsubmit="return confirm('Bạn chắc chắn muốn xóa lịch phỏng vấn?')">
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <input type="hidden" name="period_id" value="{{ $selectedPeriod?->period_id }}">
+                                                        <input type="hidden" name="tab" value="interviews" class="js-current-tab-input">
+                                                        <button type="submit" class="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600">Xóa</button>
+                                                    </form>
+                                                </div>
+                                            @else
+                                                <span class="text-gray-400 text-xs">-</span>
+                                            @endif
                                         </td>
                                     @endif
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="{{ auth()->check() && auth()->user()->role === 'admin' ? 7 : 6 }}" class="px-4 py-6 text-center text-gray-500">Chưa có lịch phỏng vấn</td>
+                                    <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">Chưa có lịch phỏng vấn</td>
                                 </tr>
                             @endforelse
                         </tbody>
                     </table>
                 </div>
 
-                @if(auth()->check() && auth()->user()->role === 'admin')
+                @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                     <form id="interviewForm" method="POST" action="{{ route('recruitment.storeInterview') }}" class="border-t pt-6 space-y-4">
                         @csrf
                         <input type="hidden" id="interview_id">
@@ -1180,6 +1259,12 @@ function startCreateJob() {
     if (periodSelect) {
         periodSelect.value = periodSelect.dataset.defaultValue || '';
     }
+
+    const departmentField = document.getElementById('department');
+    if (departmentField && departmentField.tagName === 'SELECT') {
+        departmentField.value = '';
+    }
+
     document.getElementById('job_title').value = '';
     document.getElementById('job_salary_min').value = '';
     document.getElementById('job_salary_max').value = '';
@@ -1205,6 +1290,12 @@ function startEditJobFromButton(button) {
     if (periodSelect) {
         periodSelect.value = button.dataset.periodId || periodSelect.dataset.defaultValue || '';
     }
+
+    const departmentField = document.getElementById('department');
+    if (departmentField && departmentField.tagName === 'SELECT') {
+        departmentField.value = button.dataset.department || '';
+    }
+
     document.getElementById('job_title').value = button.dataset.title || '';
     document.getElementById('job_salary_min').value = button.dataset.salaryMin || '';
     document.getElementById('job_salary_max').value = button.dataset.salaryMax || '';
@@ -1227,7 +1318,10 @@ function resetCandidateForm() {
         return;
     }
 
-    form.action = "{{ route('recruitment.storeCandidate') }}";
+    const isManager = @json($isDepartmentManager ?? false);
+    const isAdmin = @json(auth()->check() && auth()->user()->role === 'admin');
+
+    form.action = isAdmin ? "{{ route('recruitment.storeCandidate') }}" : "#";
     document.getElementById('candidate_user_id').value = '';
     document.getElementById('candidate_name').value = '';
     document.getElementById('candidate_position').value = '';
@@ -1236,12 +1330,24 @@ function resetCandidateForm() {
     document.getElementById('candidate_job_id').selectedIndex = 0;
     document.getElementById('candidate_status').selectedIndex = 0;
     document.getElementById('candidate_cv').value = '';
+
     const wrapper = document.getElementById('candidate_existing_cv_wrapper');
     const link = document.getElementById('candidate_existing_cv_link');
     link.href = '#';
     link.textContent = '';
     wrapper.classList.add('hidden');
-    document.getElementById('candidateSubmitBtn').textContent = 'Lưu ứng viên';
+
+    const submitBtn = document.getElementById('candidateSubmitBtn');
+
+    if (isAdmin) {
+        submitBtn.textContent = 'Lưu ứng viên';
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    } else if (isManager) {
+        submitBtn.textContent = 'Chọn ứng viên để cập nhật';
+        submitBtn.disabled = true;
+        submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
 }
 
 function editCandidateFromButton(button) {
@@ -1271,7 +1377,10 @@ function editCandidateFromButton(button) {
         wrapper.classList.add('hidden');
     }
 
-    document.getElementById('candidateSubmitBtn').textContent = 'Cập nhật ứng viên';
+    const submitBtn = document.getElementById('candidateSubmitBtn');
+    submitBtn.textContent = 'Cập nhật ứng viên';
+    submitBtn.disabled = false;
+    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
     form.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -1337,6 +1446,8 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('interview_candidate_phone').value = option.dataset.phone ?? '';
         });
     }
+
+    resetCandidateForm();
 });
 </script>
 

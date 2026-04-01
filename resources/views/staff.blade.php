@@ -84,12 +84,16 @@
                 </div>
 
                 <div class="flex gap-2" id="actionButtons">
-                    @if(auth()->check() && auth()->user()->role === 'admin')
-                    <a href="{{ route('staff.index') }}"
-                        class="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 transition-colors">
-                            ← Phòng ban
-                    </a>
-                    <a href="{{ route('staff.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Thêm mới</a>
+                    @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
+                    @php
+                        $user = auth()->user();
+                    @endphp
+
+                    @if($user && $user->role === 'admin')
+                        <a href="{{ route('staff.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Thêm mới</a>
+                    @elseif($user && $isDepartmentManager && $selectedDepartment && $selectedDepartment->department_id === $managedDepartmentId)
+                        <a href="{{ route('staff.create') }}" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors">Thêm mới</a>
+                    @endif
                     <a id="editBtn" href="#" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors hidden">Chỉnh sửa</a>
                     <button type="button" id="deleteBtn" class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors hidden">Xóa</button>
                     @elseif(auth()->check() && auth()->user()->role === 'staff')
@@ -380,10 +384,22 @@ function selectEmployee(el, userId) {
     
     // Show/hide buttons based on user role
     if (editBtn) {
+        const isManager = @json($isDepartmentManager ?? false);
+        const managedDepartmentId = @json($managedDepartmentId ?? null);
+        const targetEmployee = employeesData.find(e => e.user_id === userId);
+
         if (currentUserRole === 'admin') {
             editBtn.classList.remove('hidden');
             editBtn.href = `/staff/${userId}/edit`;
         } else if (currentUserRole === 'staff' && currentUserId === userId) {
+            editBtn.classList.remove('hidden');
+            editBtn.href = `/staff/${userId}/edit`;
+        } else if (
+            currentUserRole === 'staff' &&
+            isManager &&
+            targetEmployee &&
+            targetEmployee.department_id === managedDepartmentId
+        ) {
             editBtn.classList.remove('hidden');
             editBtn.href = `/staff/${userId}/edit`;
         } else {
@@ -392,6 +408,10 @@ function selectEmployee(el, userId) {
     }
     
     if (deleteBtn) {
+        const isManager = @json($isDepartmentManager ?? false);
+        const managedDepartmentId = @json($managedDepartmentId ?? null);
+        const targetEmployee = employeesData.find(e => e.user_id === userId);
+
         if (currentUserRole === 'admin') {
             deleteBtn.classList.remove('hidden');
             deleteBtn.onclick = function(e) {
@@ -400,15 +420,12 @@ function selectEmployee(el, userId) {
                     const form = document.createElement('form');
                     form.method = 'POST';
                     form.action = `/staff/${userId}`;
-                    
+
                     let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
                     if (!token) {
                         token = document.querySelector('input[name="_token"]')?.value;
                     }
-                    if (!token) {
-                        token = document.getElementById('employeeForm')?.querySelector('input[name="_token"]')?.value;
-                    }
-                    
+
                     if (token) {
                         const csrfInput = document.createElement('input');
                         csrfInput.type = 'hidden';
@@ -416,13 +433,50 @@ function selectEmployee(el, userId) {
                         csrfInput.value = token;
                         form.appendChild(csrfInput);
                     }
-                    
+
                     const methodInput = document.createElement('input');
                     methodInput.type = 'hidden';
                     methodInput.name = '_method';
                     methodInput.value = 'DELETE';
                     form.appendChild(methodInput);
-                    
+
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+            };
+        } else if (
+            currentUserRole === 'staff' &&
+            isManager &&
+            targetEmployee &&
+            targetEmployee.department_id === managedDepartmentId
+        ) {
+            deleteBtn.classList.remove('hidden');
+            deleteBtn.onclick = function(e) {
+                e.preventDefault();
+                if (confirm('Bạn chắc chắn muốn xóa nhân viên này?')) {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = `/staff/${userId}`;
+
+                    let token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                    if (!token) {
+                        token = document.querySelector('input[name="_token"]')?.value;
+                    }
+
+                    if (token) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = '_token';
+                        csrfInput.value = token;
+                        form.appendChild(csrfInput);
+                    }
+
+                    const methodInput = document.createElement('input');
+                    methodInput.type = 'hidden';
+                    methodInput.name = '_method';
+                    methodInput.value = 'DELETE';
+                    form.appendChild(methodInput);
+
                     document.body.appendChild(form);
                     form.submit();
                 }

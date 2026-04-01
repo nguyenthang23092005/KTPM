@@ -112,6 +112,12 @@ class StaffController extends Controller
 
     public function departmentOverview()
     {
+        $currentUser = auth()->user();
+
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền truy cập');
+        }
+
         $departments = Department::withCount('employees')
             ->get()
             ->map(function ($dept) {
@@ -155,6 +161,7 @@ class StaffController extends Controller
     public function index(Request $request)
     {
         $departmentId = $request->get('department_id');
+        $currentUser = auth()->user();
 
         $query = Employee::with('user', 'department')
             ->whereHas('user', function ($query) {
@@ -191,15 +198,22 @@ class StaffController extends Controller
             'employees' => $employees,
             'departments' => $departments,
             'selectedDepartment' => $selectedDepartment,
+            'isDepartmentManager' => $this->isDepartmentManager($currentUser),
+            'managedDepartmentId' => $this->managedDepartmentId($currentUser),
         ]);
     }
 
     public function show($userId)
     {
         $employee = Employee::with('user', 'department')->where('user_id', $userId)->firstOrFail();
+        $currentUser = auth()->user();
+
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền xem hồ sơ này');
+        }
+
         $departments = Department::all();
 
-        // Check if request wants JSON
         if (request()->wantsJson()) {
             return response()->json($employee->load('user', 'department'));
         }
@@ -213,6 +227,11 @@ class StaffController extends Controller
     public function serveFile(string $userId, string $type)
     {
         $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
+        $currentUser = auth()->user();
+
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền xem tệp này');
+        }
 
         $path = $this->resolveEmployeeFilePath($employee, $type);
         if (!$path) {
@@ -224,7 +243,20 @@ class StaffController extends Controller
 
     public function create()
     {
-        $departments = Department::all();
+        $currentUser = auth()->user();
+
+
+        if (!$currentUser || ($currentUser->role !== 'admin' && !$this->isDepartmentManager($currentUser))) {
+            abort(403, 'Bạn không có quyền thêm nhân viên');
+        }
+
+        if ($currentUser->role === 'admin') {
+            $departments = Department::all();
+        } else {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+            $departments = Department::where('department_id', $managedDepartmentId)->get();
+        }
+
         return view('staff.create', [
             'departments' => $departments,
         ]);
@@ -232,6 +264,13 @@ class StaffController extends Controller
 
     public function store(Request $request)
     {
+        
+        $currentUser = auth()->user();
+
+        if (!$currentUser || ($currentUser->role !== 'admin' && !$this->isDepartmentManager($currentUser))) {
+            abort(403, 'Bạn không có quyền thêm nhân viên');
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
@@ -264,9 +303,19 @@ class StaffController extends Controller
             'language_certificates' => 'nullable|string|max:2000',
         ]);
 
+
+
         // Create User first
         $userId = $this->generateUserId();
-        
+
+        if ($currentUser->role !== 'admin') {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+
+            if ($validated['department_id'] !== $managedDepartmentId) {
+                abort(403, 'Bạn chỉ được thêm nhân viên trong phòng ban mình quản lý');
+            }
+        }
+                
         $user = User::create([
             'user_id' => $userId,
             'name' => $validated['name'],
@@ -333,12 +382,18 @@ class StaffController extends Controller
     public function edit($userId)
     {
         $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
-        $departments = Department::all();
-
-        // Check authorization: admin or self
         $currentUser = auth()->user();
-        if (!$currentUser || ($currentUser->role !== 'admin' && $currentUser->user_id !== $userId)) {
-            abort(403, 'Bạn không có quyền chỉnh sửa hồ sơ này');
+
+        if (!$this->canEditEmployee($currentUser, $userId)) {
+            abort(403, 'Bạn không có quyền chỉnh sửa nhân viên này');
+        }
+
+        if ($currentUser->role === 'admin') {
+            $departments = Department::all();
+        } elseif ($this->isDepartmentManager($currentUser)) {
+            $departments = Department::where('department_id', $this->managedDepartmentId($currentUser))->get();
+        } else {
+            $departments = Department::where('department_id', $employee->department_id)->get();
         }
 
         return view('staff.edit', [
@@ -352,11 +407,10 @@ class StaffController extends Controller
     {
         $employee = Employee::with('user')->where('user_id', $userId)->firstOrFail();
         $user = $employee->user;
-
-        // Check authorization: admin or self
         $currentUser = auth()->user();
-        if (!$currentUser || ($currentUser->role !== 'admin' && $currentUser->user_id !== $userId)) {
-            abort(403, 'Bạn không có quyền chỉnh sửa hồ sơ này');
+
+        if (!$this->canEditEmployee($currentUser, $userId)) {
+            abort(403, 'Bạn không có quyền cập nhật nhân viên này');
         }
 
         $validated = $request->validate([
@@ -390,7 +444,28 @@ class StaffController extends Controller
             'language_certificates' => 'nullable|string|max:2000',
         ]);
 
-        // Update User
+        // Trưởng phòng sửa người khác thì chỉ được giữ nhân viên trong đúng phòng mình
+        if (
+            $currentUser->role !== 'admin' &&
+            $this->isDepartmentManager($currentUser) &&
+            $currentUser->user_id !== $userId
+        ) {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+
+            if ($validated['department_id'] !== $managedDepartmentId) {
+                abort(403, 'Bạn chỉ được cập nhật nhân viên trong phòng ban mình quản lý');
+            }
+        }
+
+        // Staff thường tự sửa mình thì không được tự đổi phòng ban nếu muốn khóa chặt
+        if (
+            $currentUser->role === 'staff' &&
+            !$this->isDepartmentManager($currentUser) &&
+            $currentUser->user_id === $userId
+        ) {
+            $validated['department_id'] = $employee->department_id;
+        }
+
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -400,7 +475,6 @@ class StaffController extends Controller
             'address' => $validated['address'] ?? ($validated['current_address'] ?? $user->address),
         ]);
 
-        // Update Employee
         $employeeData = [
             'department_id' => $validated['department_id'],
             'position' => $validated['position'],
@@ -444,6 +518,7 @@ class StaffController extends Controller
                 $employee->avatar_path
             );
         }
+
         if ($request->hasFile('cv_path')) {
             $cvFile = $request->file('cv_path');
             $employeeData['cv_path'] = $this->storeEmployeeDocument(
@@ -454,6 +529,7 @@ class StaffController extends Controller
                 $employee->cv_path
             );
         }
+
         if ($request->hasFile('contract_path')) {
             $contractFile = $request->file('contract_path');
             $employeeData['contract_path'] = $this->storeEmployeeDocument(
@@ -468,7 +544,7 @@ class StaffController extends Controller
         $employee->update($employeeData);
 
         return redirect()->route('staff.list', [
-            'department_id' => $validated['department_id'],
+            'department_id' => $employeeData['department_id'],
             'selected' => $userId,
         ])->with('success', 'Cập nhật nhân viên thành công');
     }
@@ -477,13 +553,105 @@ class StaffController extends Controller
     {
         $employee = Employee::where('user_id', $userId)->firstOrFail();
         $user = $employee->user;
+        $currentUser = auth()->user();
 
-        // Delete employee first (foreign key constraint)
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền xóa nhân viên này');
+        }
+
+        if ($currentUser->role === 'admin') {
+            // ok
+        } elseif ($this->isDepartmentManager($currentUser) && $this->canManageEmployee($currentUser, $employee)) {
+            // trưởng phòng được xóa nhân viên phòng mình
+        } else {
+            abort(403, 'Bạn không có quyền xóa nhân viên này');
+        }
+
         $employee->delete();
-        
-        // Then delete user
         $user->delete();
 
-        return redirect()->route('staff.index')->with('success', 'Xóa nhân viên thành công');
+        $redirectParams = [];
+
+        if ($currentUser->role === 'admin') {
+            $redirectParams = [];
+        } elseif ($this->isDepartmentManager($currentUser)) {
+            $redirectParams = [
+                'department_id' => $this->managedDepartmentId($currentUser),
+            ];
+        }
+
+        return redirect()->route('staff.list', $redirectParams)
+            ->with('success', 'Xóa nhân viên thành công');
+    }
+
+    private function isDepartmentManager($user): bool
+    {
+        if (!$user || $user->role !== 'staff') {
+            return false;
+        }
+
+        return \App\Models\Department::where('manager_user_id', $user->user_id)->exists();
+    }
+
+    private function managedDepartmentId($user): ?string
+    {
+        if (!$user) {
+            return null;
+        }
+
+        return \App\Models\Department::where('manager_user_id', $user->user_id)->value('department_id');
+    }
+
+    private function canEditEmployee($currentUser, $targetUserId): bool
+    {
+        if (!$currentUser) {
+            return false;
+        }
+
+        // admin sửa tất cả
+        if ($currentUser->role === 'admin') {
+            return true;
+        }
+
+        // staff chỉ xét tiếp nếu là staff
+        if ($currentUser->role !== 'staff') {
+            return false;
+        }
+
+        // staff sửa chính mình
+        if ($currentUser->user_id === $targetUserId) {
+            return true;
+        }
+
+        // trưởng phòng được sửa nhân viên thuộc phòng mình
+        if ($this->isDepartmentManager($currentUser)) {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+
+            if (!$managedDepartmentId) {
+                return false;
+            }
+
+            return \App\Models\Employee::where('user_id', $targetUserId)
+                ->where('department_id', $managedDepartmentId)
+                ->exists();
+        }
+
+        return false;
+    }
+
+    private function canManageEmployee($user, Employee $employee): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        $managedDepartmentId = $this->managedDepartmentId($user);
+
+        return $managedDepartmentId !== null
+            && $employee->department_id === $managedDepartmentId;
     }
 }

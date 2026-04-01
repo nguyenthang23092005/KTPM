@@ -63,14 +63,22 @@
                             <p class="avatar-name text-sm font-bold">{{ Auth::user()->name ?? 'Người dùng' }}</p>
                             <p class="avatar-name text-xs font-semibold">
                                 @php
-                                    $roleNames = [
-                                        'admin' => 'Quản trị viên',
-                                        'staff' => 'Nhân viên',
-                                        'user' => 'Ứng viên'
-                                    ];
                                     $role = Auth::user()->role ?? 'user';
+                                    $roleLabel = 'Ứng viên';
+
+                                    if ($role === 'admin') {
+                                        $roleLabel = 'Quản trị viên';
+                                    } elseif ($role === 'staff') {
+                                        $managedDepartment = \App\Models\Department::where('manager_user_id', Auth::user()->user_id)->first();
+
+                                        if ($managedDepartment) {
+                                            $roleLabel = str_replace('Phòng ', 'Trưởng phòng ', $managedDepartment->name);
+                                        } else {
+                                            $roleLabel = 'Nhân viên';
+                                        }
+                                    }
                                 @endphp
-                                {{ $roleNames[$role] ?? ucfirst($role) }}
+                                {{ $roleLabel }}
                             </p>
                         </div>
                         <!-- Dropdown Arrow -->

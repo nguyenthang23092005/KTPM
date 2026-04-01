@@ -2,15 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class DepartmentSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         \App\Models\Department::updateOrCreate(
@@ -18,6 +13,7 @@ class DepartmentSeeder extends Seeder
             [
                 'name' => 'Phòng Nhân Sự',
                 'description' => 'Quản lý nhân sự, tuyển dụng và đào tạo',
+
             ]
         );
 
@@ -26,6 +22,7 @@ class DepartmentSeeder extends Seeder
             [
                 'name' => 'Phòng Kế Toán',
                 'description' => 'Quản lý tài chính và kế toán',
+
             ]
         );
 
@@ -34,6 +31,7 @@ class DepartmentSeeder extends Seeder
             [
                 'name' => 'Phòng IT',
                 'description' => 'Công nghệ thông tin và hệ thống',
+
             ]
         );
 
@@ -42,6 +40,7 @@ class DepartmentSeeder extends Seeder
             [
                 'name' => 'Phòng Marketing',
                 'description' => 'Kinh doanh và tiếp thị',
+
             ]
         );
     }

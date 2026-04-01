@@ -134,15 +134,114 @@ class RecruitmentController extends Controller
         return $params;
     }
 
+    private function isDepartmentManager($user): bool
+    {
+        if (!$user || $user->role !== 'staff') {
+            return false;
+        }
+
+        return \App\Models\Department::where('manager_user_id', $user->user_id)->exists();
+    }
+
+    private function managedDepartmentId($user): ?string
+    {
+        if (!$user) {
+            return null;
+        }
+
+        return \App\Models\Department::where('manager_user_id', $user->user_id)->value('department_id');
+    }
+
+    private function managedDepartmentName($user): ?string
+    {
+        $departmentId = $this->managedDepartmentId($user);
+
+        return $departmentId
+            ? Department::where('department_id', $departmentId)->value('name')
+            : null;
+    }
+
+    private function canManageJob($user, $job): bool
+    {
+        if (!$user || !$job) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if (!$this->isDepartmentManager($user)) {
+            return false;
+        }
+
+        $managedDepartmentName = $this->managedDepartmentName($user);
+
+        if (!$managedDepartmentName) {
+            return false;
+        }
+
+        return trim((string) $job->department) === trim((string) $managedDepartmentName);
+    }
+
+    private function canManageCandidate($user, $candidate): bool
+    {
+        if (!$user || !$candidate) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        if (!$this->isDepartmentManager($user)) {
+            return false;
+        }
+
+        $managedDepartmentName = $this->managedDepartmentName($user);
+
+        if (!$managedDepartmentName || !$candidate->job) {
+            return false;
+        }
+
+        return trim((string) $candidate->job->department) === trim((string) $managedDepartmentName);
+    }
+
+    private function canManageInterview($user, $interview): bool
+    {
+        if (!$user) {
+            return false;
+        }
+
+        if ($user->role === 'admin') {
+            return true;
+        }
+
+        return $this->canManageCandidate($user, $interview->candidate);
+    }
+
     public function index(Request $request)
     {
         $supportsRecruitmentPeriods = $this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn();
+
+        $currentUser = auth()->user();
+
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền truy cập module tuyển dụng');
+        }
+
+        $isDepartmentManager = $this->isDepartmentManager($currentUser);
+        $managedDepartmentName = $this->managedDepartmentName($currentUser);
 
         $periods = collect();
         if ($this->hasRecruitmentPeriodsTable()) {
             $periods = RecruitmentPeriod::query()
                 ->withCount([
-                    'jobPostings as total_jobs_count',
+                    'jobPostings as total_jobs_count' => function ($query) {
+                        if ($this->hasIsDeletedColumn()) {
+                            $query->where('is_deleted', false);
+                        }
+                    },
                     'jobPostings as active_jobs_count' => function ($query) {
                         $query->whereIn('status', $this->jobStatusVariants('active'));
                         if ($this->hasIsDeletedColumn()) {
@@ -176,6 +275,7 @@ class RecruitmentController extends Controller
         $jobStatus = $this->normalizeJobStatus(trim((string) $request->query('job_status', ''))) ?? '';
 
         $jobPostingsQuery = JobPosting::query();
+
         if ($supportsRecruitmentPeriods && $selectedPeriod) {
             $jobPostingsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
         }
@@ -290,16 +390,20 @@ class RecruitmentController extends Controller
             'interviews' => fn ($query) => $query->orderByDesc('scheduled_at'),
         ])->whereHas('interviews', fn ($query) => $query->where('result', 'pass'));
 
-        if ($supportsRecruitmentPeriods && $selectedPeriod) {
-            $hiringCandidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
-                $query->where('recruitment_period_id', $selectedPeriod->period_id);
-            });
-        }
+        if ($currentUser->role === 'staff') {
+            $hiringCandidates = collect();
+        } else {
+            if ($supportsRecruitmentPeriods && $selectedPeriod) {
+                $hiringCandidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
+                    $query->where('recruitment_period_id', $selectedPeriod->period_id);
+                });
+            }
 
-        $hiringCandidates = $hiringCandidatesQuery
-            ->orderByDesc('updated_at')
-            ->paginate(10, ['*'], 'hiring_page')
-            ->withQueryString();
+            $hiringCandidates = $hiringCandidatesQuery
+                ->orderByDesc('updated_at')
+                ->paginate(10, ['*'], 'hiring_page')
+                ->withQueryString();
+        }
 
         $departments = Department::orderBy('name')->get();
 
@@ -321,6 +425,8 @@ class RecruitmentController extends Controller
             'employees' => $employees,
             'hiringCandidates' => $hiringCandidates,
             'departments' => $departments,
+            'isDepartmentManager' => $isDepartmentManager,
+            'managedDepartmentName' => $managedDepartmentName,
         ]);
     }
 
@@ -390,6 +496,7 @@ class RecruitmentController extends Controller
         $validated = $request->validate([
             'recruitment_period_id' => $periodValidationRules,
             'title' => 'required|string|max:255',
+            'department' => 'required|string|max:255',
             'salary_min' => 'required|integer|min:0',
             'salary_max' => 'required|integer|gte:salary_min|min:0',
             'quantity' => 'required|integer',
@@ -399,12 +506,30 @@ class RecruitmentController extends Controller
             'status' => 'required|in:active,closed,filled,Đang tuyển,Đã đóng,Đã tuyển đủ',
         ]);
 
+        $currentUser = auth()->user();
+
+        if ($currentUser->role !== 'admin') {
+            if (!$this->isDepartmentManager($currentUser)) {
+                abort(403, 'Bạn không có quyền tạo tin tuyển dụng');
+            }
+
+            $managedDepartmentName = $this->managedDepartmentName($currentUser);
+
+            if (!$managedDepartmentName) {
+                abort(403, 'Không xác định được phòng ban quản lý');
+            }
+
+            $validated['department'] = $managedDepartmentName;
+        }
+
         $statusMap = [
             'Đang tuyển' => 'active',
             'Đã đóng' => 'closed',
             'Đã tuyển đủ' => 'filled',
         ];
+
         $validated['status'] = $statusMap[$validated['status']] ?? $validated['status'];
+
         if ($this->hasIsDeletedColumn()) {
             $validated['is_deleted'] = false;
         }
@@ -420,7 +545,14 @@ class RecruitmentController extends Controller
     public function updateJob(Request $request, $jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
+
         $redirectPeriodId = (string) ($request->input('recruitment_period_id') ?: $job->recruitment_period_id);
+
+        $currentUser = auth()->user();
+
+        if (!$this->canManageJob($currentUser, $job)) {
+            abort(403, 'Bạn không có quyền sửa tin tuyển dụng này');
+        }
 
         if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
             return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs', $redirectPeriodId))->withErrors([
@@ -435,6 +567,7 @@ class RecruitmentController extends Controller
         $validated = $request->validate([
             'recruitment_period_id' => $periodValidationRules,
             'title' => 'sometimes|required|string|max:255',
+            'department' => 'required|string|max:255',
             'salary_min' => 'sometimes|required|integer|min:0',
             'salary_max' => 'sometimes|required|integer|min:0',
             'quantity' => 'sometimes|required|integer',
@@ -443,6 +576,17 @@ class RecruitmentController extends Controller
             'deadline' => 'sometimes|required|date',
             'status' => 'required|in:active,closed,filled,Đang tuyển,Đã đóng,Đã tuyển đủ',
         ]);
+
+        if ($currentUser->role !== 'admin') {
+            $managedDepartmentName = $this->managedDepartmentName($currentUser);
+
+            if (!$managedDepartmentName) {
+                abort(403, 'Không xác định được phòng ban quản lý');
+            }
+
+            $validated['department'] = $managedDepartmentName;
+        }
+
 
         $statusMap = [
             'Đang tuyển' => 'active',
@@ -468,6 +612,7 @@ class RecruitmentController extends Controller
             'requirements' => $validated['requirements'] ?? $job->requirements,
             'deadline' => $validated['deadline'] ?? $job->deadline,
             'status' => $statusMap[$validated['status']] ?? $validated['status'],
+            'department' => $validated['department'] ?? $job->department,
         ]);
 
         return redirect()->route(
@@ -480,6 +625,12 @@ class RecruitmentController extends Controller
     public function destroyJob(Request $request, $jobId)
     {
         $job = JobPosting::where('job_id', $jobId)->firstOrFail();
+        
+        $currentUser = auth()->user();
+
+        if (!$this->canManageJob($currentUser, $job)) {
+            abort(403, 'Bạn không có quyền xóa tin tuyển dụng này');
+        }
         $redirectPeriodId = (string) ($request->input('period_id') ?: $job->recruitment_period_id);
 
         if ($this->hasIsDeletedColumn() && $job->isDeleted()) {
@@ -548,6 +699,12 @@ class RecruitmentController extends Controller
     // ===== CANDIDATES =====
     public function storeCandidate(Request $request)
     {
+        $currentUser = auth()->user();
+
+        if (!$currentUser || $currentUser->role !== 'admin') {
+            abort(403, 'Bạn không có quyền thêm ứng viên');
+        }
+    
         $validated = $request->validate([
             'job_id' => [
                 'nullable',
@@ -619,6 +776,12 @@ class RecruitmentController extends Controller
     public function updateCandidate(Request $request, $candidateId)
     {
         $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
+        
+        $currentUser = auth()->user();
+
+        if (!$this->canManageCandidate($currentUser, $candidate)) {
+            abort(403, 'Bạn không có quyền cập nhật ứng viên này');
+        }
         $oldStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $validated = $request->validate([
@@ -639,6 +802,14 @@ class RecruitmentController extends Controller
             'cv_path' => 'nullable|file|max:5120',
             'applied_date' => 'nullable|date',
         ]);
+
+        if ($currentUser->role !== 'admin' && !empty($validated['job_id'])) {
+            $targetJob = JobPosting::where('job_id', $validated['job_id'])->first();
+
+            if (!$targetJob || !$this->canManageJob($currentUser, $targetJob)) {
+                abort(403, 'Bạn không có quyền gán ứng viên sang tin tuyển dụng của phòng khác');
+            }
+        }
 
         $statusMap = [
             'Đậu' => 'Đã nhận việc',
@@ -684,6 +855,12 @@ class RecruitmentController extends Controller
     public function destroyCandidate(Request $request, $candidateId)
     {
         $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
+        $currentUser = auth()->user();
+
+        if (!$currentUser || $currentUser->role !== 'admin') {
+            abort(403, 'Bạn không có quyền xóa ứng viên này');
+        }
+
         $candidate->delete();
 
         return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
@@ -693,6 +870,12 @@ class RecruitmentController extends Controller
     public function serveCandidateCv(string $candidateId)
     {
         $candidate = Candidate::where('user_id', $candidateId)->firstOrFail();
+        $currentUser = auth()->user();
+
+        if (!$currentUser) {
+            abort(403, 'Bạn không có quyền xem CV của ứng viên này');
+        }
+
         $cvPath = $this->extractCvPathFromNotes($candidate->notes);
 
         if (!$cvPath || !Storage::disk('public')->exists($cvPath)) {
@@ -715,6 +898,14 @@ class RecruitmentController extends Controller
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
+        
+
+        $currentUser = auth()->user();
+
+        if (!$this->canManageCandidate($currentUser, $candidate)) {
+            abort(403, 'Bạn không có quyền tạo lịch phỏng vấn cho ứng viên này');
+        }
+
         $oldCandidateStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $resultMap = [
@@ -768,6 +959,12 @@ class RecruitmentController extends Controller
     public function updateInterview(Request $request, $interviewId)
     {
         $interview = Interview::where('interview_id', $interviewId)->firstOrFail();
+        
+        $currentUser = auth()->user();
+
+        if (!$this->canManageInterview($currentUser, $interview)) {
+            abort(403, 'Bạn không có quyền cập nhật lịch phỏng vấn này');
+        }
         $oldResult = $interview->result;
 
         $validated = $request->validate([
@@ -780,6 +977,9 @@ class RecruitmentController extends Controller
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
+        if (!$this->canManageCandidate($currentUser, $candidate)) {
+            abort(403, 'Bạn không có quyền gán lịch phỏng vấn cho ứng viên này');
+        }
         $oldCandidateStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $resultMap = [
@@ -837,34 +1037,40 @@ class RecruitmentController extends Controller
     public function destroyInterview(Request $request, $interviewId)
     {
         $interview = Interview::where('interview_id', $interviewId)->firstOrFail();
+        $currentUser = auth()->user();
+
+        if (!$this->canManageInterview($currentUser, $interview)) {
+            abort(403, 'Bạn không có quyền xóa lịch phỏng vấn này');
+        }
         $interview->delete();
+
 
         return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
             ->with('success', 'Xóa lịch phỏng vấn thành công');
     }
 
-    public function submitApplication(Request $request)
-    {
-        $validated = $request->validate([
-            'job_id' => 'required|exists:job_postings,job_id',
-            'name' => 'required|string|max:255',
-            'email' => 'required|email',
-            'phone' => 'required|string|max:20',
-            'position' => 'required|string|max:100',
-            'cv_path' => 'required|file|max:5120',
-        ]);
+    # public function submitApplication(Request $request)
+    # {
+    #     $validated = $request->validate([
+    #         'job_id' => 'required|exists:job_postings,job_id',
+    #         'name' => 'required|string|max:255',
+    #         'email' => 'required|email',
+    #         'phone' => 'required|string|max:20',
+    #         'position' => 'required|string|max:100',
+    #         'cv_path' => 'required|file|max:5120',
+    #      ]);
 
         // Xử lý upload CV
-        if ($request->hasFile('cv_path')) {
-            $validated['cv_path'] = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
-        }
-        $validated['status'] = 'Đang chờ';
-        $validated['applied_date'] = now();
+    #     if ($request->hasFile('cv_path')) {
+    #         $validated['cv_path'] = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
+    #     }
+    #     $validated['status'] = 'Đang chờ';
+    #     $validated['applied_date'] = now();
 
-        Candidate::create($validated);
+    #     Candidate::create($validated);
 
-        return redirect()->back()->with('success', 'Nộp hồ sơ thành công');
-    }
+    #     return redirect()->back()->with('success', 'Nộp hồ sơ thành công');
+    # }
 
     private function generateNextUserId(string $prefix): string
     {

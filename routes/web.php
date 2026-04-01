@@ -210,13 +210,16 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/staff/list', [StaffController::class, 'index'])->name('staff.list');
     });
 
-    // Admin-only staff actions
+    // Admin-only hiring actions
     Route::middleware('role:admin')->group(function () {
         Route::get('/hiring-promotions', [HiringController::class, 'index'])
             ->name('hiring.index');
         Route::post('/hiring-promotions/{candidateId}/promote', [HiringController::class, 'promote'])
             ->name('hiring.promote');
+    });
 
+    // Staff actions: admin + staff đều vào được, controller tự chặn staff thường / trưởng phòng
+    Route::middleware('role:admin,staff')->group(function () {
         Route::get('/staff/create', [StaffController::class, 'create'])->name('staff.create');
         Route::post('/staff', [StaffController::class, 'store'])->name('staff.store');
         Route::delete('/staff/{userId}', [StaffController::class, 'destroy'])->name('staff.destroy');
@@ -232,8 +235,8 @@ Route::middleware(['auth'])->group(function () {
             ->name('staff.show');
     });
 
-    // Staff edit mutations - admin or self
-    Route::middleware('auth')->group(function () {
+    // Staff edit/update - chỉ admin hoặc staff
+    Route::middleware('role:admin,staff')->group(function () {
         Route::get('/staff/{userId}/edit', [StaffController::class, 'edit'])
             ->name('staff.edit');
 
@@ -259,24 +262,28 @@ Route::middleware(['auth'])->group(function () {
             Route::post('/period/{periodId}', [RecruitmentController::class, 'updatePeriod'])->name('updatePeriod');
             Route::delete('/period/{periodId}', [RecruitmentController::class, 'destroyPeriod'])->name('destroyPeriod');
 
+
+            Route::post('/candidate', [RecruitmentController::class, 'storeCandidate'])->name('storeCandidate');
+            Route::delete('/candidate/{candidateId}', [RecruitmentController::class, 'destroyCandidate'])->name('destroyCandidate');
+        });
+
+        Route::middleware('role:admin,staff')->group(function () {
             // Job Postings
             Route::post('/job', [RecruitmentController::class, 'storeJob'])->name('storeJob');
             Route::post('/job/{jobId}', [RecruitmentController::class, 'updateJob'])->name('updateJob');
             Route::delete('/job/{jobId}', [RecruitmentController::class, 'destroyJob'])->name('destroyJob');
 
             // Candidates
-            Route::post('/candidate', [RecruitmentController::class, 'storeCandidate'])->name('storeCandidate');
             Route::post('/candidate/{candidateId}', [RecruitmentController::class, 'updateCandidate'])->name('updateCandidate');
-            Route::delete('/candidate/{candidateId}', [RecruitmentController::class, 'destroyCandidate'])->name('destroyCandidate');
 
             // Interviews
             Route::post('/interview', [RecruitmentController::class, 'storeInterview'])->name('storeInterview');
             Route::post('/interview/{interviewId}', [RecruitmentController::class, 'updateInterview'])->name('updateInterview');
             Route::delete('/interview/{interviewId}', [RecruitmentController::class, 'destroyInterview'])->name('destroyInterview');
-
-            Route::post('/apply', [RecruitmentController::class, 'submitApplication'])->name('submitApplication');
         });
     });
+
+
 
     // Notification routes
     Route::group(['prefix' => 'notifications', 'as' => 'notifications.'], function () {

@@ -3,20 +3,15 @@
 namespace Database\Seeders;
 
 use App\Models\JobPosting;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
 
 class JobPostingSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
         $jobs = [
-            // IT/Tech Jobs
             [
+                'job_id' => 'JOB_001',
                 'title' => 'Lập Trình Viên PHP/Laravel',
                 'description' => 'Tuyển dụng lập trình viên PHP với kinh nghiệm 2+ năm. Yêu cầu: Thành thạo PHP, Laravel, MySQL.',
                 'requirements' => 'PHP 8+, Laravel, MySQL, Git, Docker',
@@ -28,6 +23,7 @@ class JobPostingSeeder extends Seeder
                 'deadline' => now()->addDays(30),
             ],
             [
+                'job_id' => 'JOB_002',
                 'title' => 'Frontend Developer React',
                 'description' => 'Phát triển giao diện web với React. Kinh nghiệm 1.5+ năm trong phát triển frontend.',
                 'requirements' => 'React, TypeScript, Tailwind CSS, Redux, Git',
@@ -36,9 +32,10 @@ class JobPostingSeeder extends Seeder
                 'location' => 'TP. Hồ Chí Minh',
                 'department' => 'Phòng IT',
                 'status' => 'active',
-                'deadline' => now()->subDays(5), // Hết hạn 5 ngày trước
+                'deadline' => now()->subDays(5),
             ],
             [
+                'job_id' => 'JOB_003',
                 'title' => 'Full Stack Developer',
                 'description' => 'Cần full stack developer có khả năng xử lý cả backend và frontend. Kinh nghiệm 3+ năm.',
                 'requirements' => 'Laravel, React, MySQL, Redis, AWS',
@@ -47,9 +44,10 @@ class JobPostingSeeder extends Seeder
                 'location' => 'Hà Nội',
                 'department' => 'Phòng IT',
                 'status' => 'active',
-                'deadline' => now()->subDays(1), // Hết hạn 1 ngày trước
+                'deadline' => now()->subDays(1),
             ],
             [
+                'job_id' => 'JOB_004',
                 'title' => 'DevOps Engineer',
                 'description' => 'Quản lý infrastructure, deployment và monitoring. Kinh nghiệm 2+ năm với Docker, Kubernetes.',
                 'requirements' => 'Docker, Kubernetes, Linux, CI/CD, AWS/Azure',
@@ -60,9 +58,8 @@ class JobPostingSeeder extends Seeder
                 'status' => 'active',
                 'deadline' => now()->addDays(35),
             ],
-            
-            // HR/Admin Jobs
             [
+                'job_id' => 'JOB_005',
                 'title' => 'Nhân Viên Nhân Sự',
                 'description' => 'Tuyển dụng nhân viên nhân sự hỗ trợ quá trình tuyển dụng, đào tạo. Tính chuyên nghiệp và cẩn thận.',
                 'requirements' => 'Tốt nghiệp cao đẳng/đại học, giao tiếp tốt, tiếng Anh cơ bản',
@@ -74,6 +71,7 @@ class JobPostingSeeder extends Seeder
                 'deadline' => now()->addDays(20),
             ],
             [
+                'job_id' => 'JOB_006',
                 'title' => 'Recruitment Officer',
                 'description' => 'Tuyển dụng cho các vị trí khác nhau. Cần kỹ năng tương tác tốt với ứng viên.',
                 'requirements' => 'Kinh nghiệm tuyển dụng 1+ năm, tiếng Anh, Microsoft Office thành thạo',
@@ -82,11 +80,10 @@ class JobPostingSeeder extends Seeder
                 'location' => 'Hà Nội',
                 'department' => 'Phòng Nhân Sự',
                 'status' => 'active',
-                'deadline' => now()->subDays(10), // Hết hạn 10 ngày trước
+                'deadline' => now()->subDays(10),
             ],
-            
-            // Finance Jobs
             [
+                'job_id' => 'JOB_007',
                 'title' => 'Kế Toán Viên',
                 'description' => 'Hỗ trợ kế toán công ty. Cẩn thận tính toán, tổng hợp báo cáo tài chính hàng tháng.',
                 'requirements' => 'Cấp chứng chỉ kế toán, Excel thành thạo, phần mềm kế toán',
@@ -98,6 +95,7 @@ class JobPostingSeeder extends Seeder
                 'deadline' => now()->addDays(28),
             ],
             [
+                'job_id' => 'JOB_008',
                 'title' => 'Trưởng Phòng Kế Toán',
                 'description' => 'Quản lý phòng kế toán, báo cáo tài chính, kiểm soát chi phí. Kinh nghiệm 5+ năm.',
                 'requirements' => 'Bằng cấp kế toán cao, kinh nghiệm quản lý phòng ban, tiếng Anh',
@@ -108,9 +106,8 @@ class JobPostingSeeder extends Seeder
                 'status' => 'active',
                 'deadline' => now()->addDays(30),
             ],
-            
-            // Marketing Jobs
             [
+                'job_id' => 'JOB_009',
                 'title' => 'Chuyên Viên Digital Marketing',
                 'description' => 'Quản lý các chiến dịch quảng cáo trên Facebook, Google Ads. Kinh nghiệm 2+ năm.',
                 'requirements' => 'Facebook Ads, Google Ads, Analytics, Content Marketing',
@@ -122,8 +119,9 @@ class JobPostingSeeder extends Seeder
                 'deadline' => now()->addDays(35),
             ],
             [
+                'job_id' => 'JOB_010',
                 'title' => 'Content Creator',
-                'description' => 'Tạo nội dung cho website, social media, quảng cáo. Yêu cầu sáng tạo, keenhab marketing.',
+                'description' => 'Tạo nội dung cho website, social media, quảng cáo.',
                 'requirements' => 'Năng lực viết lách, Adobe Creative Suite, SEO cơ bản, tiếng Anh',
                 'salary_min' => 9000000,
                 'salary_max' => 14000000,
@@ -136,7 +134,7 @@ class JobPostingSeeder extends Seeder
 
         foreach ($jobs as $job) {
             JobPosting::updateOrCreate(
-                ['title' => $job['title']],
+                ['job_id' => $job['job_id']],
                 $job
             );
         }

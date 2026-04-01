@@ -4,58 +4,142 @@ namespace Database\Seeders;
 
 use App\Models\Candidate;
 use App\Models\JobPosting;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class CandidateSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     * Tạo candidates profile cho 15 user accounts
-     */
     public function run(): void
     {
         $jobIdsByTitle = JobPosting::query()->pluck('job_id', 'title');
 
         $candidates = [
-            // Frontend candidates
-            ['US_001', 'Frontend Developer React', 'Đã duyệt CV', '2 năm kinh nghiệm', 'Đại học Công nghệ TPHCM', 'Có portfolio github, tốt giao tiếp'],
-            ['US_002', 'Frontend Developer React', 'Phỏng vấn', '2.5 năm kinh nghiệm', 'Đại học FPT', 'Good ui/ux design sense, tốt'],
-            ['US_003', 'Frontend Developer React', 'Đã nhận việc', '1.5 năm kinh nghiệm', 'Cao đẳng HNIT', 'Reaction nhanh, learning ability tốt'],
-            ['US_004', 'Frontend Developer React', 'Từ chối', '1 năm kinh nghiệm', 'Tự học online', 'Có các dự án nhỏ, tính chuyên cần'],
-            
-            // Backend candidates
-            ['US_006', 'Lập Trình Viên PHP/Laravel', 'Đang chờ', '3 năm kinh nghiệm', 'Đại học Bách Khoa Hà Nội', 'Kinh nghiệm Enterprise, thái độ tốt'],
-            ['US_007', 'Lập Trình Viên PHP/Laravel', 'Phỏng vấn', '2.5 năm kinh nghiệm', 'Đại học Kinh tế Quốc dân', 'Thành thạo clean code, testing'],
-            ['US_008', 'Full Stack Developer', 'Đã duyệt CV', '4 năm kinh nghiệm', 'Đại học Sài Gòn', 'Kinh nghiệm startup, growth mindset'],
-            
-            // HR candidates
-            ['US_009', 'Nhân Viên Nhân Sự', 'Đang chờ', '1 năm kinh nghiệm', 'Đại học Hà Nội', 'Communication skills tốt, cẩn thận'],
-            ['US_010', 'Recruitment Officer', 'Đã duyệt CV', '2 năm kinh nghiệm', 'Đại học Ngoại thương', 'Có network tốt, target driven'],
-            
-            // Accounting candidates
-            ['US_011', 'Kế Toán Viên', 'Phỏng vấn', '3 năm kinh nghiệm', 'Đại học Kinh Tế TPHCM', 'Thành thạo phần mềm kế toán, cẩn thận'],
-            ['US_012', 'Trưởng Phòng Kế Toán', 'Đang chờ', '6 năm kinh nghiệm', 'Đại học Kinh Tế Quốc dân', 'Quản lý nhiều phòng ban, kỹ năng cao'],
-            
-            // Marketing candidates
-            ['US_013', 'Chuyên Viên Digital Marketing', 'Đã duyệt CV', '2 năm kinh nghiệm', 'Đại học Thương mại', 'Sáng tạo campaigns, data-driven'],
-            ['US_014', 'Content Creator', 'Phỏng vấn', '1.5 năm kinh nghiệm', 'Đại học Văn hóa Thông tin', 'Creative writing, graphics design'],
-            ['US_015', 'Chuyên Viên Digital Marketing', 'Từ chối', '1 năm kinh nghiệm', 'Tự học online', 'Tìm hiểu nhiều nhưng kiến thức sâu còn hạn chế'],
+            [
+                'user_id' => 'US_001',
+                'job_title' => 'Frontend Developer React',
+                'status' => 'Đã duyệt CV',
+                'experience' => '2 năm kinh nghiệm',
+                'education' => 'Đại học Công nghệ TPHCM',
+                'notes' => 'Có portfolio github, tốt giao tiếp',
+            ],
+            [
+                'user_id' => 'US_002',
+                'job_title' => 'Frontend Developer React',
+                'status' => 'Phỏng vấn',
+                'experience' => '2.5 năm kinh nghiệm',
+                'education' => 'Đại học FPT',
+                'notes' => 'Good ui/ux design sense, tốt',
+            ],
+            [
+                'user_id' => 'US_003',
+                'job_title' => 'Frontend Developer React',
+                'status' => 'Đã nhận việc',
+                'experience' => '1.5 năm kinh nghiệm',
+                'education' => 'Cao đẳng HNIT',
+                'notes' => 'Reaction nhanh, learning ability tốt',
+            ],
+            [
+                'user_id' => 'US_004',
+                'job_title' => 'Frontend Developer React',
+                'status' => 'Từ chối',
+                'experience' => '1 năm kinh nghiệm',
+                'education' => 'Tự học online',
+                'notes' => 'Có các dự án nhỏ, tính chuyên cần',
+            ],
+            [
+                'user_id' => 'US_006',
+                'job_title' => 'Lập Trình Viên PHP/Laravel',
+                'status' => 'Đang chờ',
+                'experience' => '3 năm kinh nghiệm',
+                'education' => 'Đại học Bách Khoa Hà Nội',
+                'notes' => 'Kinh nghiệm Enterprise, thái độ tốt',
+            ],
+            [
+                'user_id' => 'US_007',
+                'job_title' => 'Lập Trình Viên PHP/Laravel',
+                'status' => 'Phỏng vấn',
+                'experience' => '2.5 năm kinh nghiệm',
+                'education' => 'Đại học Kinh tế Quốc dân',
+                'notes' => 'Thành thạo clean code, testing',
+            ],
+            [
+                'user_id' => 'US_008',
+                'job_title' => 'Full Stack Developer',
+                'status' => 'Đã duyệt CV',
+                'experience' => '4 năm kinh nghiệm',
+                'education' => 'Đại học Sài Gòn',
+                'notes' => 'Kinh nghiệm startup, growth mindset',
+            ],
+            [
+                'user_id' => 'US_009',
+                'job_title' => 'Nhân Viên Nhân Sự',
+                'status' => 'Đang chờ',
+                'experience' => '1 năm kinh nghiệm',
+                'education' => 'Đại học Hà Nội',
+                'notes' => 'Communication skills tốt, cẩn thận',
+            ],
+            [
+                'user_id' => 'US_010',
+                'job_title' => 'Recruitment Officer',
+                'status' => 'Đã duyệt CV',
+                'experience' => '2 năm kinh nghiệm',
+                'education' => 'Đại học Ngoại thương',
+                'notes' => 'Có network tốt, target driven',
+            ],
+            [
+                'user_id' => 'US_011',
+                'job_title' => 'Kế Toán Viên',
+                'status' => 'Phỏng vấn',
+                'experience' => '3 năm kinh nghiệm',
+                'education' => 'Đại học Kinh Tế TPHCM',
+                'notes' => 'Thành thạo phần mềm kế toán, cẩn thận',
+            ],
+            [
+                'user_id' => 'US_012',
+                'job_title' => 'Trưởng Phòng Kế Toán',
+                'status' => 'Đang chờ',
+                'experience' => '6 năm kinh nghiệm',
+                'education' => 'Đại học Kinh Tế Quốc dân',
+                'notes' => 'Quản lý nhiều phòng ban, kỹ năng cao',
+            ],
+            [
+                'user_id' => 'US_013',
+                'job_title' => 'Chuyên Viên Digital Marketing',
+                'status' => 'Đã duyệt CV',
+                'experience' => '2 năm kinh nghiệm',
+                'education' => 'Đại học Thương mại',
+                'notes' => 'Sáng tạo campaigns, data-driven',
+            ],
+            [
+                'user_id' => 'US_014',
+                'job_title' => 'Content Creator',
+                'status' => 'Phỏng vấn',
+                'experience' => '1.5 năm kinh nghiệm',
+                'education' => 'Đại học Văn hóa Thông tin',
+                'notes' => 'Creative writing, graphics design',
+            ],
+            [
+                'user_id' => 'US_015',
+                'job_title' => 'Chuyên Viên Digital Marketing',
+                'status' => 'Từ chối',
+                'experience' => '1 năm kinh nghiệm',
+                'education' => 'Tự học online',
+                'notes' => 'Tìm hiểu nhiều nhưng kiến thức sâu còn hạn chế',
+            ],
         ];
 
         foreach ($candidates as $candidate) {
-            Candidate::updateOrCreate([
-                'user_id' => $candidate[0],
-            ], [
-                'job_id' => $jobIdsByTitle[$candidate[1]] ?? null,
-                'position_applied' => $candidate[1],
-                'status' => $candidate[2],
-                'experience' => $candidate[3],
-                'education' => $candidate[4],
-                'notes' => $candidate[5],
-                'applied_date' => now()->subDays(rand(1, 15)),
-            ]);
+            Candidate::updateOrCreate(
+                ['user_id' => $candidate['user_id']],
+                [
+                    'job_id' => $jobIdsByTitle[$candidate['job_title']] ?? null,
+                    'position_applied' => $candidate['job_title'],
+                    'status' => $candidate['status'],
+                    'experience' => $candidate['experience'],
+                    'education' => $candidate['education'],
+                    'notes' => $candidate['notes'],
+                    'applied_date' => now()->subDays(rand(1, 15))->toDateString(),
+                ]
+            );
         }
     }
 }
-

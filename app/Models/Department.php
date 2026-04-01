@@ -15,7 +15,7 @@ class Department extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($department) {
             if (!$department->department_id) {
                 $lastDept = static::orderBy('department_id', 'desc')->first();
@@ -29,7 +29,10 @@ class Department extends Model
     }
 
     protected $fillable = [
-        'department_id', 'name', 'description'
+        'department_id',
+        'name',
+        'description',
+        'manager_user_id',
     ];
 
     public function employees()
@@ -37,4 +40,8 @@ class Department extends Model
         return $this->hasMany(Employee::class, 'department_id', 'department_id');
     }
 
+    public function manager()
+    {
+        return $this->belongsTo(Employee::class, 'manager_user_id', 'user_id');
+    }
 }

@@ -128,7 +128,7 @@
                     <select name="department_id" class="w-full p-2 border border-gray-300 rounded @error('department_id') border-red-500 @enderror" required>
                         <option value="">-- Chọn Phòng Ban --</option>
                         @foreach($departments as $dept)
-                            <option value="{{ $dept->department_id }}" {{ old('department_id') == $dept->department_id ? 'selected' : '' }}>
+                            <option value="{{ $dept->department_id }}" {{ old('department_id', $departments->count() === 1 ? $dept->department_id : '') == $dept->department_id ? 'selected' : '' }}>
                                 {{ $dept->name }}
                             </option>
                         @endforeach
