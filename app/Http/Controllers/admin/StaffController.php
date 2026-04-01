@@ -61,7 +61,15 @@ class StaffController extends Controller
 
         // Keep one document per type to avoid stale files and UI ambiguity.
         foreach ($disk->files($directory) as $path) {
-            if (Str::startsWith(basename($path), $prefix . '_')) {
+            $baseName = basename($path);
+            $shouldDelete = Str::startsWith($baseName, $prefix . '_');
+
+            // Backward-compatible cleanup for legacy avatar naming.
+            if (!$shouldDelete && $prefix === 'Avt') {
+                $shouldDelete = Str::startsWith($baseName, 'Avatar_');
+            }
+
+            if ($shouldDelete) {
                 $disk->delete($path);
             }
         }
@@ -101,13 +109,19 @@ class StaffController extends Controller
             'contract' => '/(^|\\/)(Ct|HD)_.*\\.(pdf|doc|docx)$/i',
         ];
 
-        foreach ($files as $file) {
-            if (preg_match($patternMap[$type], $file)) {
-                return $file;
-            }
+        $matchedFiles = array_values(array_filter($files, function ($file) use ($patternMap, $type) {
+            return preg_match($patternMap[$type], $file) === 1;
+        }));
+
+        if (empty($matchedFiles)) {
+            return null;
         }
 
-        return null;
+        usort($matchedFiles, function ($a, $b) {
+            return Storage::disk('public')->lastModified($b) <=> Storage::disk('public')->lastModified($a);
+        });
+
+        return $matchedFiles[0];
     }
 
     public function departmentOverview()
@@ -182,6 +196,7 @@ class StaffController extends Controller
             $cvPath = $this->resolveEmployeeFilePath($employee, 'cv');
             $contractPath = $this->resolveEmployeeFilePath($employee, 'contract');
             $avatarPath = $this->resolveEmployeeFilePath($employee, 'avatar');
+            $avatarVersion = $avatarPath ? Storage::disk('public')->lastModified($avatarPath) : null;
 
             $employee->cv_file = $cvPath
                 ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'cv'])
@@ -190,7 +205,11 @@ class StaffController extends Controller
                 ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'contract'])
                 : null;
             $employee->avatar_file = $avatarPath
-                ? route('staff.file', ['userId' => $employee->user_id, 'type' => 'avatar'])
+                ? route('staff.file', [
+                    'userId' => $employee->user_id,
+                    'type' => 'avatar',
+                    'v' => $avatarVersion,
+                ])
                 : null;
         }
 
@@ -390,8 +409,6 @@ class StaffController extends Controller
 
         if ($currentUser->role === 'admin') {
             $departments = Department::all();
-        } elseif ($this->isDepartmentManager($currentUser)) {
-            $departments = Department::where('department_id', $this->managedDepartmentId($currentUser))->get();
         } else {
             $departments = Department::where('department_id', $employee->department_id)->get();
         }
@@ -444,23 +461,9 @@ class StaffController extends Controller
             'language_certificates' => 'nullable|string|max:2000',
         ]);
 
-        // Trưởng phòng sửa người khác thì chỉ được giữ nhân viên trong đúng phòng mình
-        if (
-            $currentUser->role !== 'admin' &&
-            $this->isDepartmentManager($currentUser) &&
-            $currentUser->user_id !== $userId
-        ) {
-            $managedDepartmentId = $this->managedDepartmentId($currentUser);
-
-            if ($validated['department_id'] !== $managedDepartmentId) {
-                abort(403, 'Bạn chỉ được cập nhật nhân viên trong phòng ban mình quản lý');
-            }
-        }
-
-        // Staff thường tự sửa mình thì không được tự đổi phòng ban nếu muốn khóa chặt
+        // Staff tự sửa hồ sơ của mình thì không được tự đổi phòng ban.
         if (
             $currentUser->role === 'staff' &&
-            !$this->isDepartmentManager($currentUser) &&
             $currentUser->user_id === $userId
         ) {
             $validated['department_id'] = $employee->department_id;
@@ -621,19 +624,6 @@ class StaffController extends Controller
         // staff sửa chính mình
         if ($currentUser->user_id === $targetUserId) {
             return true;
-        }
-
-        // trưởng phòng được sửa nhân viên thuộc phòng mình
-        if ($this->isDepartmentManager($currentUser)) {
-            $managedDepartmentId = $this->managedDepartmentId($currentUser);
-
-            if (!$managedDepartmentId) {
-                return false;
-            }
-
-            return \App\Models\Employee::where('user_id', $targetUserId)
-                ->where('department_id', $managedDepartmentId)
-                ->exists();
         }
 
         return false;

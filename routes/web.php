@@ -30,12 +30,19 @@ Route::get('/', function () {
 Route::get('/jobs', function () {
     $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
         && Schema::hasColumn('job_postings', 'recruitment_period_id');
+    $isAdminViewer = auth()->check() && auth()->user()->role === 'admin';
 
     $selectedPeriodId = trim((string) request()->query('period_id', ''));
     $periods = collect();
 
     if ($supportsRecruitmentPeriods) {
-        $periods = RecruitmentPeriod::query()
+        $periodsQuery = RecruitmentPeriod::query();
+
+        if (!$isAdminViewer) {
+            $periodsQuery->whereIn('status', ['open', 'closed']);
+        }
+
+        $periods = $periodsQuery
             ->withCount([
                 'jobPostings as active_jobs_count' => function ($query) {
                     $query->where('status', 'active');
@@ -64,6 +71,15 @@ Route::get('/jobs', function () {
     if ($supportsRecruitmentPeriods) {
         $jobsQuery->with('recruitmentPeriod');
 
+        if (!$isAdminViewer) {
+            $jobsQuery->where(function ($query) {
+                $query->whereNull('recruitment_period_id')
+                    ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                        $periodQuery->whereIn('status', ['open', 'closed']);
+                    });
+            });
+        }
+
         if ($selectedPeriod) {
             $jobsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
         }
@@ -79,7 +95,31 @@ Route::get('/jobs', function () {
 })->name('jobs.index');
 
 Route::get('/jobs/{id}', function ($id) {
-    $job = \App\Models\JobPosting::findOrFail($id);
+    $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
+        && Schema::hasColumn('job_postings', 'recruitment_period_id');
+    $isAdminViewer = auth()->check() && auth()->user()->role === 'admin';
+
+    $jobQuery = \App\Models\JobPosting::query();
+
+    if ($supportsRecruitmentPeriods) {
+        $jobQuery->with('recruitmentPeriod');
+    }
+
+    $job = $jobQuery->findOrFail($id);
+    $isRecruitmentPeriodDraft = false;
+    $isRecruitmentPeriodClosed = false;
+
+    if ($supportsRecruitmentPeriods && $job->recruitmentPeriod) {
+        $isRecruitmentPeriodDraft = $job->recruitmentPeriod->status === 'draft';
+
+        if ($isRecruitmentPeriodDraft && !$isAdminViewer) {
+            abort(404);
+        }
+
+        $isRecruitmentPeriodClosed = $job->recruitmentPeriod->status === 'closed'
+            || ($job->recruitmentPeriod->end_date && $job->recruitmentPeriod->end_date->isPast());
+    }
+
     $existingApplication = null;
 
     if (auth()->check()) {
@@ -103,7 +143,7 @@ Route::get('/jobs/{id}', function ($id) {
         }
     }
 
-    return view('jobs.show', compact('job', 'existingApplication'));
+    return view('jobs.show', compact('job', 'existingApplication', 'isRecruitmentPeriodClosed', 'isRecruitmentPeriodDraft'));
 })->name('jobs.show');
 
 Route::post('/apply', function () {
@@ -116,6 +156,30 @@ Route::post('/apply', function () {
     ]);
 
     $job = JobPosting::findOrFail($validated['job_id']);
+
+    $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
+        && Schema::hasColumn('job_postings', 'recruitment_period_id');
+
+    if ($supportsRecruitmentPeriods) {
+        $job->loadMissing('recruitmentPeriod');
+
+        if ($job->recruitmentPeriod && $job->recruitmentPeriod->status === 'draft') {
+            return back()
+                ->withErrors(['cv' => 'Kì tuyển dụng này chưa mở. Vui lòng quay lại sau.'])
+                ->withInput();
+        }
+
+        $isRecruitmentPeriodClosed = $job->recruitmentPeriod
+            && ($job->recruitmentPeriod->status === 'closed'
+                || ($job->recruitmentPeriod->end_date && $job->recruitmentPeriod->end_date->isPast()));
+
+        if ($isRecruitmentPeriodClosed) {
+            return back()
+                ->withErrors(['cv' => 'Kì tuyển dụng đã kết thúc vui lòng chờ các kì tuyển dụng sắp tới'])
+                ->withInput();
+        }
+    }
+
     if ($job->isDeleted() || $job->status !== 'active') {
         return back()
             ->withErrors(['cv' => 'Tin tuyển dụng này không còn nhận hồ sơ.'])

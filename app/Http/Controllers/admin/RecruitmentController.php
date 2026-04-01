@@ -181,6 +181,14 @@ class RecruitmentController extends Controller
             return false;
         }
 
+        if ($this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn()) {
+            $job->loadMissing('recruitmentPeriod');
+
+            if ($job->recruitmentPeriod && $job->recruitmentPeriod->status === 'draft') {
+                return false;
+            }
+        }
+
         return trim((string) $job->department) === trim((string) $managedDepartmentName);
     }
 
@@ -200,8 +208,16 @@ class RecruitmentController extends Controller
 
         $managedDepartmentName = $this->managedDepartmentName($user);
 
+        $candidate->loadMissing('job.recruitmentPeriod');
+
         if (!$managedDepartmentName || !$candidate->job) {
             return false;
+        }
+
+        if ($this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn()) {
+            if ($candidate->job->recruitmentPeriod && $candidate->job->recruitmentPeriod->status === 'draft') {
+                return false;
+            }
         }
 
         return trim((string) $candidate->job->department) === trim((string) $managedDepartmentName);
@@ -232,10 +248,17 @@ class RecruitmentController extends Controller
 
         $isDepartmentManager = $this->isDepartmentManager($currentUser);
         $managedDepartmentName = $this->managedDepartmentName($currentUser);
+        $canViewDraftPeriods = $currentUser->role === 'admin';
 
         $periods = collect();
         if ($this->hasRecruitmentPeriodsTable()) {
-            $periods = RecruitmentPeriod::query()
+            $periodsQuery = RecruitmentPeriod::query();
+
+            if (!$canViewDraftPeriods) {
+                $periodsQuery->whereIn('status', ['open', 'closed']);
+            }
+
+            $periods = $periodsQuery
                 ->withCount([
                     'jobPostings as total_jobs_count' => function ($query) {
                         if ($this->hasIsDeletedColumn()) {
@@ -276,6 +299,15 @@ class RecruitmentController extends Controller
 
         $jobPostingsQuery = JobPosting::query();
 
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $jobPostingsQuery->where(function ($query) {
+                $query->whereNull('recruitment_period_id')
+                    ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                        $periodQuery->whereIn('status', ['open', 'closed']);
+                    });
+            });
+        }
+
         if ($supportsRecruitmentPeriods && $selectedPeriod) {
             $jobPostingsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
         }
@@ -309,6 +341,15 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $allJobsCountQuery = JobPosting::query();
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $allJobsCountQuery->where(function ($query) {
+                $query->whereNull('recruitment_period_id')
+                    ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                        $periodQuery->whereIn('status', ['open', 'closed']);
+                    });
+            });
+        }
+
         if ($this->hasIsDeletedColumn()) {
             $allJobsCountQuery->where('is_deleted', false);
         }
@@ -328,6 +369,15 @@ class RecruitmentController extends Controller
             ->count();
 
         $activeJobPostingsQuery = JobPosting::whereIn('status', $this->jobStatusVariants('active'));
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $activeJobPostingsQuery->where(function ($query) {
+                $query->whereNull('recruitment_period_id')
+                    ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                        $periodQuery->whereIn('status', ['open', 'closed']);
+                    });
+            });
+        }
+
         if ($this->hasIsDeletedColumn()) {
             $activeJobPostingsQuery->where('is_deleted', false);
         }
@@ -340,6 +390,18 @@ class RecruitmentController extends Controller
             ->get();
 
         $candidatesQuery = Candidate::with(['user', 'job']);
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $candidatesQuery->where(function ($query) {
+                $query->whereNull('job_id')
+                    ->orWhereHas('job', function ($jobQuery) {
+                        $jobQuery->whereNull('recruitment_period_id')
+                            ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                                $periodQuery->whereIn('status', ['open', 'closed']);
+                            });
+                    });
+            });
+        }
+
         if ($this->hasIsDeletedColumn()) {
             $candidatesQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM job_postings jp WHERE jp.job_id = candidates.job_id AND jp.is_deleted = 1) THEN 1 ELSE 0 END");
         }
@@ -354,6 +416,18 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $interviewsQuery = Interview::with(['candidate', 'job', 'interviewer']);
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $interviewsQuery->where(function ($query) {
+                $query->whereDoesntHave('job')
+                    ->orWhereHas('job', function ($jobQuery) {
+                        $jobQuery->whereNull('recruitment_period_id')
+                            ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                                $periodQuery->whereIn('status', ['open', 'closed']);
+                            });
+                    });
+            });
+        }
+
         if ($this->hasIsDeletedColumn()) {
             $interviewsQuery->orderByRaw("CASE WHEN EXISTS (SELECT 1 FROM candidates c JOIN job_postings jp ON jp.job_id = c.job_id WHERE c.user_id = interviews.user_id AND jp.is_deleted = 1) OR notes LIKE '%[JOB_DELETED]%' THEN 1 ELSE 0 END");
         }
@@ -368,6 +442,18 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $interviewCandidatesQuery = Candidate::with('user')->where('status', 'Phỏng vấn');
+        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+            $interviewCandidatesQuery->where(function ($query) {
+                $query->whereNull('job_id')
+                    ->orWhereHas('job', function ($jobQuery) {
+                        $jobQuery->whereNull('recruitment_period_id')
+                            ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                                $periodQuery->whereIn('status', ['open', 'closed']);
+                            });
+                    });
+            });
+        }
+
         if ($supportsRecruitmentPeriods && $selectedPeriod) {
             $interviewCandidatesQuery->whereHas('job', function ($query) use ($selectedPeriod) {
                 $query->where('recruitment_period_id', $selectedPeriod->period_id);
@@ -378,6 +464,17 @@ class RecruitmentController extends Controller
         $candidatePositions = Candidate::query()
             ->whereNotNull('position_applied')
             ->where('position_applied', '!=', '')
+            ->when($supportsRecruitmentPeriods && !$canViewDraftPeriods, function ($query) {
+                $query->where(function ($scopedQuery) {
+                    $scopedQuery->whereNull('job_id')
+                        ->orWhereHas('job', function ($jobQuery) {
+                            $jobQuery->whereNull('recruitment_period_id')
+                                ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                                    $periodQuery->whereIn('status', ['open', 'closed']);
+                                });
+                        });
+                });
+            })
             ->distinct()
             ->orderBy('position_applied')
             ->pluck('position_applied');
@@ -520,6 +617,16 @@ class RecruitmentController extends Controller
             }
 
             $validated['department'] = $managedDepartmentName;
+
+            if ($this->hasRecruitmentPeriodsTable() && !empty($validated['recruitment_period_id'])) {
+                $periodStatus = RecruitmentPeriod::where('period_id', $validated['recruitment_period_id'])
+                    ->value('status');
+
+                if ($periodStatus === 'draft') {
+                    return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs'))
+                        ->withErrors(['job' => 'Kỳ tuyển dụng ở trạng thái nháp chỉ dành cho admin.']);
+                }
+            }
         }
 
         $statusMap = [
@@ -585,6 +692,18 @@ class RecruitmentController extends Controller
             }
 
             $validated['department'] = $managedDepartmentName;
+
+            if ($this->hasRecruitmentPeriodsTable() && !empty($validated['recruitment_period_id'])) {
+                $periodStatus = RecruitmentPeriod::where('period_id', $validated['recruitment_period_id'])
+                    ->value('status');
+
+                if ($periodStatus === 'draft') {
+                    return redirect()->route(
+                        'recruitment.index',
+                        $this->buildRecruitmentRedirectParams($request, 'jobs', $job->recruitment_period_id)
+                    )->withErrors(['job' => 'Kỳ tuyển dụng ở trạng thái nháp chỉ dành cho admin.']);
+                }
+            }
         }
 
 
