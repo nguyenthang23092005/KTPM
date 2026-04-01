@@ -461,9 +461,23 @@ class StaffController extends Controller
             'language_certificates' => 'nullable|string|max:2000',
         ]);
 
+        // Trưởng phòng sửa người khác thì chỉ được giữ nhân viên trong đúng phòng mình.
+        if (
+            $currentUser->role !== 'admin' &&
+            $this->isDepartmentManager($currentUser) &&
+            $currentUser->user_id !== $userId
+        ) {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+
+            if ($validated['department_id'] !== $managedDepartmentId) {
+                abort(403, 'Bạn chỉ được cập nhật nhân viên trong phòng ban mình quản lý');
+            }
+        }
+
         // Staff tự sửa hồ sơ của mình thì không được tự đổi phòng ban.
         if (
             $currentUser->role === 'staff' &&
+            !$this->isDepartmentManager($currentUser) &&
             $currentUser->user_id === $userId
         ) {
             $validated['department_id'] = $employee->department_id;
@@ -593,7 +607,17 @@ class StaffController extends Controller
             return false;
         }
 
-        return \App\Models\Department::where('manager_user_id', $user->user_id)->exists();
+        $isAssignedManager = \App\Models\Department::where('manager_user_id', $user->user_id)->exists();
+
+        if ($isAssignedManager) {
+            return true;
+        }
+
+        $position = (string) Employee::where('user_id', $user->user_id)->value('position');
+        $normalizedPosition = Str::lower($position);
+
+        return str_contains($normalizedPosition, 'truong phong')
+            || str_contains($normalizedPosition, 'trưởng phòng');
     }
 
     private function managedDepartmentId($user): ?string
@@ -602,7 +626,17 @@ class StaffController extends Controller
             return null;
         }
 
-        return \App\Models\Department::where('manager_user_id', $user->user_id)->value('department_id');
+        $departmentId = \App\Models\Department::where('manager_user_id', $user->user_id)->value('department_id');
+
+        if ($departmentId) {
+            return $departmentId;
+        }
+
+        if (!$this->isDepartmentManager($user)) {
+            return null;
+        }
+
+        return Employee::where('user_id', $user->user_id)->value('department_id');
     }
 
     private function canEditEmployee($currentUser, $targetUserId): bool
@@ -624,6 +658,19 @@ class StaffController extends Controller
         // staff sửa chính mình
         if ($currentUser->user_id === $targetUserId) {
             return true;
+        }
+
+        // trưởng phòng được sửa nhân viên thuộc phòng mình
+        if ($this->isDepartmentManager($currentUser)) {
+            $managedDepartmentId = $this->managedDepartmentId($currentUser);
+
+            if (!$managedDepartmentId) {
+                return false;
+            }
+
+            return \App\Models\Employee::where('user_id', $targetUserId)
+                ->where('department_id', $managedDepartmentId)
+                ->exists();
         }
 
         return false;
