@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Notifications\CandidateStatusUpdatedNotification;
 use App\Notifications\InterviewResultUpdatedNotification;
 use App\Notifications\JobPostingDeletedNotification;
+use App\Support\CandidateBackup;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -183,10 +184,6 @@ class RecruitmentController extends Controller
 
         if ($this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn()) {
             $job->loadMissing('recruitmentPeriod');
-
-            if ($job->recruitmentPeriod && $job->recruitmentPeriod->status === 'draft') {
-                return false;
-            }
         }
 
         return trim((string) $job->department) === trim((string) $managedDepartmentName);
@@ -215,9 +212,7 @@ class RecruitmentController extends Controller
         }
 
         if ($this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn()) {
-            if ($candidate->job->recruitmentPeriod && $candidate->job->recruitmentPeriod->status === 'draft') {
-                return false;
-            }
+            $candidate->job->loadMissing('recruitmentPeriod');
         }
 
         return trim((string) $candidate->job->department) === trim((string) $managedDepartmentName);
@@ -236,6 +231,19 @@ class RecruitmentController extends Controller
         return $this->canManageCandidate($user, $interview->candidate);
     }
 
+    private function isCandidateInDeletedJob($candidate): bool
+    {
+        if (!$candidate) {
+            return false;
+        }
+
+        $candidate->loadMissing('job');
+
+        return $this->hasIsDeletedColumn()
+            && $candidate->job
+            && (bool) $candidate->job->is_deleted;
+    }
+
     public function index(Request $request)
     {
         $supportsRecruitmentPeriods = $this->hasRecruitmentPeriodsTable() && $this->hasRecruitmentPeriodColumn();
@@ -248,17 +256,10 @@ class RecruitmentController extends Controller
 
         $isDepartmentManager = $this->isDepartmentManager($currentUser);
         $managedDepartmentName = $this->managedDepartmentName($currentUser);
-        $canViewDraftPeriods = $currentUser->role === 'admin';
-
         $periods = collect();
         if ($this->hasRecruitmentPeriodsTable()) {
-            $periodsQuery = RecruitmentPeriod::query();
-
-            if (!$canViewDraftPeriods) {
-                $periodsQuery->whereIn('status', ['open', 'closed']);
-            }
-
-            $periods = $periodsQuery
+            $periods = RecruitmentPeriod::query()
+                ->whereIn('status', ['open', 'closed'])
                 ->withCount([
                     'jobPostings as total_jobs_count' => function ($query) {
                         if ($this->hasIsDeletedColumn()) {
@@ -299,7 +300,7 @@ class RecruitmentController extends Controller
 
         $jobPostingsQuery = JobPosting::query();
 
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $jobPostingsQuery->where(function ($query) {
                 $query->whereNull('recruitment_period_id')
                     ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
@@ -341,7 +342,7 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $allJobsCountQuery = JobPosting::query();
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $allJobsCountQuery->where(function ($query) {
                 $query->whereNull('recruitment_period_id')
                     ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
@@ -369,7 +370,7 @@ class RecruitmentController extends Controller
             ->count();
 
         $activeJobPostingsQuery = JobPosting::whereIn('status', $this->jobStatusVariants('active'));
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $activeJobPostingsQuery->where(function ($query) {
                 $query->whereNull('recruitment_period_id')
                     ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
@@ -390,7 +391,7 @@ class RecruitmentController extends Controller
             ->get();
 
         $candidatesQuery = Candidate::with(['user', 'job']);
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $candidatesQuery->where(function ($query) {
                 $query->whereNull('job_id')
                     ->orWhereHas('job', function ($jobQuery) {
@@ -416,7 +417,7 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $interviewsQuery = Interview::with(['candidate', 'job', 'interviewer']);
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $interviewsQuery->where(function ($query) {
                 $query->whereDoesntHave('job')
                     ->orWhereHas('job', function ($jobQuery) {
@@ -442,7 +443,7 @@ class RecruitmentController extends Controller
             ->withQueryString();
 
         $interviewCandidatesQuery = Candidate::with('user')->where('status', 'Phỏng vấn');
-        if ($supportsRecruitmentPeriods && !$canViewDraftPeriods) {
+        if ($supportsRecruitmentPeriods) {
             $interviewCandidatesQuery->where(function ($query) {
                 $query->whereNull('job_id')
                     ->orWhereHas('job', function ($jobQuery) {
@@ -464,7 +465,7 @@ class RecruitmentController extends Controller
         $candidatePositions = Candidate::query()
             ->whereNotNull('position_applied')
             ->where('position_applied', '!=', '')
-            ->when($supportsRecruitmentPeriods && !$canViewDraftPeriods, function ($query) {
+            ->when($supportsRecruitmentPeriods, function ($query) {
                 $query->where(function ($scopedQuery) {
                     $scopedQuery->whereNull('job_id')
                         ->orWhereHas('job', function ($jobQuery) {
@@ -534,7 +535,7 @@ class RecruitmentController extends Controller
             'name' => 'required|string|max:255',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
-            'status' => 'required|in:draft,open,closed',
+            'status' => 'required|in:open,closed',
             'notes' => 'nullable|string',
         ]);
 
@@ -552,7 +553,7 @@ class RecruitmentController extends Controller
             'name' => 'required|string|max:255',
             'start_date' => 'required|date',
             'end_date' => 'required|date|after_or_equal:start_date',
-            'status' => 'required|in:draft,open,closed',
+            'status' => 'required|in:open,closed',
             'notes' => 'nullable|string',
         ]);
 
@@ -619,15 +620,6 @@ class RecruitmentController extends Controller
 
             $validated['department'] = $managedDepartmentName;
 
-            if ($this->hasRecruitmentPeriodsTable() && !empty($validated['recruitment_period_id'])) {
-                $periodStatus = RecruitmentPeriod::where('period_id', $validated['recruitment_period_id'])
-                    ->value('status');
-
-                if ($periodStatus === 'draft') {
-                    return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'jobs'))
-                        ->withErrors(['job' => 'Kỳ tuyển dụng ở trạng thái nháp chỉ dành cho admin.']);
-                }
-            }
         }
 
         $statusMap = [
@@ -695,17 +687,6 @@ class RecruitmentController extends Controller
 
             $validated['department'] = $managedDepartmentName;
 
-            if ($this->hasRecruitmentPeriodsTable() && !empty($validated['recruitment_period_id'])) {
-                $periodStatus = RecruitmentPeriod::where('period_id', $validated['recruitment_period_id'])
-                    ->value('status');
-
-                if ($periodStatus === 'draft') {
-                    return redirect()->route(
-                        'recruitment.index',
-                        $this->buildRecruitmentRedirectParams($request, 'jobs', $job->recruitment_period_id)
-                    )->withErrors(['job' => 'Kỳ tuyển dụng ở trạng thái nháp chỉ dành cho admin.']);
-                }
-            }
         }
 
 
@@ -776,9 +757,13 @@ class RecruitmentController extends Controller
         $candidateUserIds = $candidates->pluck('user_id');
 
         foreach ($candidates as $candidate) {
+            $candidateUpdatePayload = ['status' => 'Đã xóa'];
+
             if (empty($candidate->job_id)) {
-                $candidate->update(['job_id' => $job->job_id]);
+                $candidateUpdatePayload['job_id'] = $job->job_id;
             }
+
+            $candidate->update($candidateUpdatePayload);
 
             if ($candidate->user) {
                 $candidate->user->notify(new JobPostingDeletedNotification($job));
@@ -853,12 +838,6 @@ class RecruitmentController extends Controller
         ];
         $candidateStatus = $statusMap[$validated['status']] ?? $validated['status'];
 
-        // Xử lý upload CV
-        $cvPath = null;
-        if ($request->hasFile('cv_path')) {
-            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
-        }
-
         $user = User::where('email', $validated['email'])->first();
         if (!$user) {
             $user = User::create([
@@ -876,9 +855,15 @@ class RecruitmentController extends Controller
             ]);
         }
 
+        // Xử lý upload CV theo thư mục riêng của ứng viên
+        $cvPath = null;
+        if ($request->hasFile('cv_path')) {
+            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name'], $user->user_id);
+        }
+
         $noteText = $cvPath ? 'CV: ' . $cvPath : null;
 
-        Candidate::updateOrCreate(
+        $candidateRecord = Candidate::updateOrCreate(
             ['user_id' => $user->user_id],
             [
                 'job_id' => $validated['job_id'] ?? null,
@@ -889,9 +874,37 @@ class RecruitmentController extends Controller
             ]
         );
 
+        CandidateBackup::upsert($candidateRecord->user_id, [
+            'user' => [
+                'user_id' => $user->user_id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'gender' => $user->gender,
+                'birth_date' => $user->birth_date,
+                'address' => $user->address,
+            ],
+            'candidate' => [
+                'job_id' => $candidateRecord->job_id,
+                'position_applied' => $candidateRecord->position_applied,
+                'status' => $candidateRecord->status,
+                'experience' => $candidateRecord->experience,
+                'education' => $candidateRecord->education,
+                'notes' => $candidateRecord->notes,
+                'applied_date' => $candidateRecord->applied_date,
+            ],
+            'updated_at' => now()->toDateTimeString(),
+        ]);
+
         $this->ensureInterviewRecordForCandidate($user->user_id, $candidateStatus);
 
-        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+        $targetTab = $candidateStatus === 'Phỏng vấn' ? 'interviews' : 'candidates';
+        $redirectPeriodId = null;
+        if ($targetTab === 'interviews' && $this->hasRecruitmentPeriodColumn()) {
+            $redirectPeriodId = JobPosting::where('job_id', $candidateRecord->job_id)->value('recruitment_period_id');
+        }
+
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, $targetTab, $redirectPeriodId))
             ->with('success', 'Thêm ứng viên thành công');
     }
 
@@ -904,6 +917,12 @@ class RecruitmentController extends Controller
         if (!$this->canManageCandidate($currentUser, $candidate)) {
             abort(403, 'Bạn không có quyền cập nhật ứng viên này');
         }
+
+        if ($this->isCandidateInDeletedJob($candidate)) {
+            return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+                ->with('error', 'Ứng viên thuộc tin tuyển dụng đã xóa. Trạng thái hồ sơ được khóa ở mức Đã xóa.');
+        }
+
         $oldStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $validated = $request->validate([
@@ -940,10 +959,10 @@ class RecruitmentController extends Controller
         ];
         $candidateStatus = $statusMap[$validated['status']] ?? $validated['status'];
 
-        // Xử lý upload CV
+        // Xử lý upload CV theo thư mục riêng của ứng viên
         $cvPath = null;
         if ($request->hasFile('cv_path')) {
-            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name']);
+            $cvPath = $this->storeCandidateCv($request->file('cv_path'), $validated['name'], $candidate->user_id);
         }
 
         $candidate->user->update([
@@ -960,7 +979,35 @@ class RecruitmentController extends Controller
             'notes' => $cvPath ? 'CV: ' . $cvPath : $candidate->notes,
         ]);
 
+        CandidateBackup::upsert($candidate->user_id, [
+            'user' => [
+                'user_id' => $candidate->user?->user_id,
+                'name' => $candidate->user?->name,
+                'email' => $candidate->user?->email,
+                'phone' => $candidate->user?->phone,
+                'gender' => $candidate->user?->gender,
+                'birth_date' => $candidate->user?->birth_date,
+                'address' => $candidate->user?->address,
+            ],
+            'candidate' => [
+                'job_id' => $candidate->job_id,
+                'position_applied' => $candidate->position_applied,
+                'status' => $candidate->status,
+                'experience' => $candidate->experience,
+                'education' => $candidate->education,
+                'notes' => $candidate->notes,
+                'applied_date' => $candidate->applied_date,
+            ],
+            'updated_at' => now()->toDateTimeString(),
+        ]);
+
         $this->ensureInterviewRecordForCandidate($candidate->user_id, $candidateStatus);
+
+        $targetTab = $candidateStatus === 'Phỏng vấn' ? 'interviews' : 'candidates';
+        $redirectPeriodId = null;
+        if ($targetTab === 'interviews' && $this->hasRecruitmentPeriodColumn()) {
+            $redirectPeriodId = JobPosting::where('job_id', $candidate->job_id)->value('recruitment_period_id');
+        }
 
         if ($candidate->user && $oldStatus !== $candidateStatus) {
             $candidate->user->notify(new CandidateStatusUpdatedNotification(
@@ -970,7 +1017,7 @@ class RecruitmentController extends Controller
             ));
         }
 
-        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
+        return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, $targetTab, $redirectPeriodId))
             ->with('success', 'Cập nhật ứng viên thành công');
     }
 
@@ -983,6 +1030,7 @@ class RecruitmentController extends Controller
             abort(403, 'Bạn không có quyền xóa ứng viên này');
         }
 
+        CandidateBackup::remove($candidate->user_id);
         $candidate->delete();
 
         return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'candidates'))
@@ -1028,6 +1076,11 @@ class RecruitmentController extends Controller
             abort(403, 'Bạn không có quyền tạo lịch phỏng vấn cho ứng viên này');
         }
 
+        if ($this->isCandidateInDeletedJob($candidate)) {
+            return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
+                ->with('error', 'Không thể tạo lịch phỏng vấn cho ứng viên thuộc tin tuyển dụng đã xóa.');
+        }
+
         $oldCandidateStatus = $this->normalizeCandidateStatus($candidate->status);
 
         $resultMap = [
@@ -1041,9 +1094,11 @@ class RecruitmentController extends Controller
 
         $result = $resultMap[$validated['result']] ?? $validated['result'];
 
+        $scheduledAt = $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00';
+
         Interview::create([
             'user_id' => $user->user_id,
-            'scheduled_at' => $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00',
+            'scheduled_at' => $scheduledAt,
             'result' => $result,
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -1058,11 +1113,11 @@ class RecruitmentController extends Controller
             $candidate->update(['status' => $newCandidateStatus]);
         }
 
-        if ($candidate->user && $result !== 'pending') {
+        if ($candidate->user) {
             $candidate->user->notify(new InterviewResultUpdatedNotification(
                 $this->interviewResultLabel($result),
                 $candidate->position_applied ?? null,
-                now()->toDateTimeString()
+                $scheduledAt
             ));
         }
 
@@ -1088,6 +1143,7 @@ class RecruitmentController extends Controller
             abort(403, 'Bạn không có quyền cập nhật lịch phỏng vấn này');
         }
         $oldResult = $interview->result;
+        $oldScheduledAt = $interview->scheduled_at?->format('Y-m-d H:i:s');
 
         $validated = $request->validate([
             'candidate_email' => 'required|email|exists:users,email',
@@ -1099,6 +1155,12 @@ class RecruitmentController extends Controller
 
         $user = User::where('email', $validated['candidate_email'])->firstOrFail();
         $candidate = Candidate::where('user_id', $user->user_id)->firstOrFail();
+
+        if ($this->isCandidateInDeletedJob($candidate)) {
+            return redirect()->route('recruitment.index', $this->buildRecruitmentRedirectParams($request, 'interviews'))
+                ->with('error', 'Không thể cập nhật lịch phỏng vấn cho ứng viên thuộc tin tuyển dụng đã xóa.');
+        }
+
         if (!$this->canManageCandidate($currentUser, $candidate)) {
             abort(403, 'Bạn không có quyền gán lịch phỏng vấn cho ứng viên này');
         }
@@ -1115,9 +1177,11 @@ class RecruitmentController extends Controller
 
         $result = $resultMap[$validated['result']] ?? $validated['result'];
 
+        $newScheduledAt = $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00';
+
         $interview->update([
             'user_id' => $user->user_id,
-            'scheduled_at' => $validated['interview_date'] . ' ' . $validated['interview_time'] . ':00',
+            'scheduled_at' => $newScheduledAt,
             'result' => $result,
             'notes' => $validated['notes'] ?? null,
         ]);
@@ -1136,11 +1200,11 @@ class RecruitmentController extends Controller
             $candidate->update(['status' => $newCandidateStatus]);
         }
 
-        if ($candidate->user && $oldResult !== $result) {
+        if ($candidate->user && ($oldResult !== $result || $oldScheduledAt !== $newScheduledAt)) {
             $candidate->user->notify(new InterviewResultUpdatedNotification(
                 $this->interviewResultLabel($result),
                 $candidate->position_applied ?? null,
-                $interview->scheduled_at?->format('Y-m-d H:i:s')
+                $newScheduledAt
             ));
         }
 
@@ -1225,12 +1289,13 @@ class RecruitmentController extends Controller
         }
     }
 
-    private function storeCandidateCv($uploadedFile, string $candidateName): string
+    private function storeCandidateCv($uploadedFile, string $candidateName, string $candidateId): string
     {
-        $directory = 'candidates/AD';
+        $safeCandidateId = preg_replace('/[^A-Za-z0-9_-]/', '_', $candidateId);
+        $directory = 'candidates/' . ($safeCandidateId ?: 'unknown');
         $nameSlug = Str::slug($candidateName, '_');
         $nameSlug = $nameSlug !== '' ? $nameSlug : 'ung_vien';
-        $baseName = 'CV_UV_' . $nameSlug;
+        $baseName = 'cv_uv_' . $nameSlug;
         $extension = strtolower($uploadedFile->getClientOriginalExtension() ?: 'pdf');
 
         $fileName = $baseName . '.' . $extension;

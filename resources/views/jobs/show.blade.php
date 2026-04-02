@@ -64,11 +64,7 @@
                         <p class="text-sm text-gray-600">Kỳ tuyển dụng</p>
                         <p class="font-semibold text-purple-700">
                             {{ $job->recruitmentPeriod->name }}
-                            @if($isRecruitmentPeriodDraft ?? false)
-                                <span class="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                    Nháp
-                                </span>
-                            @elseif(($job->recruitmentPeriod->status ?? null) === 'closed')
+                            @if(($job->recruitmentPeriod->status ?? null) === 'closed')
                                 <span class="ml-1 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-700">
                                     Đã đóng
                                 </span>
@@ -126,18 +122,6 @@
                     </div>
                 @endif
 
-                @if($isRecruitmentPeriodDraft ?? false)
-                    <div class="mb-4 rounded border border-amber-200 bg-amber-50 p-4 text-amber-800">
-                        <div class="flex items-center">
-                            <i class="fas fa-pen-ruler text-amber-600 mr-3 text-lg"></i>
-                            <div>
-                                <p class="font-semibold">Kì tuyển dụng đang ở trạng thái Nháp</p>
-                                <p class="text-sm mt-1">Tin tuyển dụng này chưa mở nhận hồ sơ.</p>
-                            </div>
-                        </div>
-                    </div>
-                @endif
-                
                 <!-- Deadline Expired Alert -->
                 @if($job->isDeadlinePassed())
                     <div class="mb-4 rounded border border-red-200 bg-red-50 p-4 text-red-800">
@@ -181,7 +165,7 @@
                     </div>
                 @endif
 
-                @if(!($isRecruitmentPeriodDraft ?? false) && !($isRecruitmentPeriodClosed ?? false) && !$job->isDeadlinePassed() && !$job->isDeleted())
+                @if(!($isRecruitmentPeriodClosed ?? false) && !$job->isDeadlinePassed() && !$job->isDeleted())
                     @auth
                         <form id="applyForm" method="POST" action="{{ route('jobs.apply') }}" enctype="multipart/form-data" class="space-y-4">
                             @csrf

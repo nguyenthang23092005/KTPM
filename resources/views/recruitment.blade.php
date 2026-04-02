@@ -4,13 +4,11 @@
 
 @php
     $periodStatusLabels = [
-        'draft' => 'Nháp',
         'open' => 'Đang mở',
         'closed' => 'Đã đóng',
     ];
 
     $periodStatusClasses = [
-        'draft' => 'bg-gray-100 text-gray-700',
         'open' => 'bg-green-100 text-green-700',
         'closed' => 'bg-red-100 text-red-700',
     ];
@@ -184,7 +182,6 @@
             onchange="filterPeriods()"
         >
             <option value="">Tất cả trạng thái</option>
-            <option value="draft">Nháp</option>
             <option value="open">Đang mở</option>
             <option value="closed">Đã đóng</option>
         </select>
@@ -301,7 +298,6 @@
         @endif
 
         <div class="period-info-panel border rounded-lg p-4 bg-gray-50 mb-6">
-            <h2 class="text-xl font-semibold text-gray-900 mb-4">Thông tin kỳ tuyển dụng</h2>
             
             @if(auth()->check() && auth()->user()->role === 'staff')
                 <div class="rounded border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 mb-4">
@@ -310,13 +306,6 @@
             @endif
 
             @if(auth()->check() && auth()->user()->role === 'admin' && $supportsRecruitmentPeriods)
-                <div
-                    id="periodFormPlaceholder"
-                    class="rounded-lg border border-dashed border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-800 mb-4 {{ $openPeriodForm ? 'hidden' : '' }}"
-                >
-                    Nhấn nút "Thêm kỳ" để mở form tạo kỳ tuyển dụng mới.
-                </div>
-
                 <form
                     id="periodForm"
                     method="POST"
@@ -343,9 +332,8 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
                             <select id="period_status" name="status" class="w-full p-2 border border-gray-300 rounded" required>
-                                <option value="draft" {{ old('status', 'draft') === 'draft' ? 'selected' : '' }}>Nháp</option>
                                 <option value="open" {{ old('status') === 'open' ? 'selected' : '' }}>Đang mở</option>
-                                <option value="closed" {{ old('status') === 'closed' ? 'selected' : '' }}>Đã đóng</option>
+                                <option value="closed" {{ old('status', 'closed') === 'closed' ? 'selected' : '' }}>Đã đóng</option>
                             </select>
                         </div>
 
@@ -745,6 +733,26 @@
             </div>
 
             <div id="candidates" class="tab-content hidden">
+                <div class="mb-4 flex items-center gap-2 flex-wrap">
+                    <input
+                        id="candidateSearchInput"
+                        type="text"
+                        placeholder="Tìm ứng viên theo tên, email, SĐT, vị trí..."
+                        class="w-80 p-2 border border-gray-300 rounded"
+                    >
+                    <select id="candidateStatusFilter" class="p-2 border border-gray-300 rounded" onchange="applyCandidateFilters()">
+                        <option value="">Tất cả trạng thái</option>
+                        <option value="Đang chờ">Đang chờ</option>
+                        <option value="Đã duyệt CV">Đã duyệt CV</option>
+                        <option value="Phỏng vấn">Phỏng vấn</option>
+                        <option value="Đã nhận việc">Đã nhận việc</option>
+                        <option value="Từ chối">Từ chối</option>
+                        <option value="Đã xóa">Đã xóa</option>
+                    </select>
+                    <button type="button" onclick="applyCandidateFilters()" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Lọc</button>
+                    <button type="button" onclick="resetCandidateFilters()" class="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Làm mới</button>
+                </div>
+
                 <div class="overflow-x-auto mb-6">
                     <table class="w-full text-sm border" id="candidatesTable">
                         <thead class="bg-gray-100 border-b">
@@ -769,8 +777,22 @@
                                         $cvPath = trim($matches[1]);
                                     }
                                     $cvUrl = $cvPath ? route('recruitment.candidateCv', $candidate->user_id) : null;
+                                    $isCandidateJobDeleted = ($candidate->job?->is_deleted ?? false) === true;
+                                    $candidateDisplayStatus = $isCandidateJobDeleted ? 'Đã xóa' : $candidate->status;
+                                    $candidateSearchBlob = \Illuminate\Support\Str::lower(trim(implode(' ', [
+                                        $candidate->user?->name ?? '',
+                                        $candidate->user?->email ?? '',
+                                        $candidate->user?->phone ?? '',
+                                        $candidate->position_applied ?? '',
+                                        $candidate->job?->department ?? '',
+                                    ])));
                                 @endphp
-                                <tr class="border-b hover:bg-gray-50">
+                                <tr
+                                    class="border-b hover:bg-gray-50"
+                                    data-row-type="candidate"
+                                    data-candidate-search="{{ $candidateSearchBlob }}"
+                                    data-candidate-status="{{ \Illuminate\Support\Str::lower($candidateDisplayStatus) }}"
+                                >
                                     <td class="px-4 py-2">{{ $candidate->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $candidate->user?->phone ?? '-' }}</td>
@@ -783,7 +805,13 @@
                                             <span class="text-gray-500">Không có CV</span>
                                         @endif
                                     </td>
-                                    <td class="px-4 py-2">{{ $candidate->status }}</td>
+                                    <td class="px-4 py-2">
+                                        @if($isCandidateJobDeleted)
+                                            <span class="px-2 py-1 rounded bg-gray-200 text-gray-700">Đã xóa</span>
+                                        @else
+                                            {{ $candidate->status }}
+                                        @endif
+                                    </td>
                                     @if(auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager))
                                         <td class="px-4 py-2">
                                             @php
@@ -796,7 +824,7 @@
                                                     );
                                             @endphp
 
-                                            @if($canManageThisCandidate)
+                                            @if($canManageThisCandidate && !$isCandidateJobDeleted)
                                                 <div class="flex items-center justify-center gap-2 text-xs">
                                                     <button
                                                         type="button"
@@ -805,7 +833,7 @@
                                                         data-email="{{ $candidate->user?->email }}"
                                                         data-phone="{{ $candidate->user?->phone }}"
                                                         data-position="{{ $candidate->position_applied }}"
-                                                        data-status="{{ $candidate->status }}"
+                                                        data-status="{{ $candidateDisplayStatus }}"
                                                         data-job-id="{{ $candidate->job_id }}"
                                                         data-cv-url="{{ $cvUrl }}"
                                                         data-cv-name="{{ $cvPath ? basename($cvPath) : '' }}"
@@ -824,7 +852,7 @@
                                                     @endif
                                                 </div>
                                             @else
-                                                <span class="text-gray-400 text-xs">-</span>
+                                                <span class="text-gray-400 text-xs">{{ $isCandidateJobDeleted ? 'Đã xóa' : '-' }}</span>
                                             @endif
                                         </td>
                                     @endif
@@ -834,6 +862,11 @@
                                     <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">Chưa có ứng viên</td>
                                 </tr>
                             @endforelse
+                            <tr id="candidateNoResultRow" class="hidden">
+                                <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-4 text-center text-gray-500">
+                                    Không tìm thấy ứng viên phù hợp bộ lọc.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -900,6 +933,23 @@
             </div>
 
             <div id="interviews" class="tab-content hidden">
+                <div class="mb-4 flex items-center gap-2 flex-wrap">
+                    <input
+                        id="interviewSearchInput"
+                        type="text"
+                        placeholder="Tìm theo ứng viên, email, SĐT, phòng ban..."
+                        class="w-80 p-2 border border-gray-300 rounded"
+                    >
+                    <select id="interviewStatusFilter" class="p-2 border border-gray-300 rounded" onchange="applyInterviewFilters()">
+                        <option value="">Tất cả kết quả</option>
+                        <option value="Chờ kết quả">Chờ kết quả</option>
+                        <option value="Đã nhận việc">Đã nhận việc</option>
+                        <option value="Từ chối">Từ chối</option>
+                    </select>
+                    <button type="button" onclick="applyInterviewFilters()" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Lọc</button>
+                    <button type="button" onclick="resetInterviewFilters()" class="px-3 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300">Làm mới</button>
+                </div>
+
                 <div class="overflow-x-auto mb-6">
                     <table class="w-full text-sm border" id="interviewsTable">
                         <thead class="bg-gray-100 border-b">
@@ -928,8 +978,20 @@
                                     $interviewResultClass = $interviewResultLabel === 'Đã nhận việc'
                                         ? 'bg-green-100 text-green-700'
                                         : ($interviewResultLabel === 'Từ chối' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700');
+                                    $interviewSearchBlob = \Illuminate\Support\Str::lower(trim(implode(' ', [
+                                        $interview->candidate?->user?->name ?? '',
+                                        $interview->candidate?->user?->email ?? '',
+                                        $interview->candidate?->user?->phone ?? '',
+                                        $interview->candidate?->job?->department ?? '',
+                                        $interview->notes ?? '',
+                                    ])));
                                 @endphp
-                                <tr class="border-b hover:bg-gray-50">
+                                <tr
+                                    class="border-b hover:bg-gray-50"
+                                    data-row-type="interview"
+                                    data-interview-search="{{ $interviewSearchBlob }}"
+                                    data-interview-status="{{ \Illuminate\Support\Str::lower($interviewResultLabel) }}"
+                                >
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->name ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->email ?? '-' }}</td>
                                     <td class="px-4 py-2">{{ $interview->candidate?->user?->phone ?? '-' }}</td>
@@ -987,6 +1049,11 @@
                                     <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">Chưa có lịch phỏng vấn</td>
                                 </tr>
                             @endforelse
+                            <tr id="interviewNoResultRow" class="hidden">
+                                <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-4 text-center text-gray-500">
+                                    Không tìm thấy lịch phỏng vấn phù hợp bộ lọc.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -1202,7 +1269,7 @@ function resetPeriodFormFields() {
     document.getElementById('period_name').value = '';
     document.getElementById('period_start_date').value = '';
     document.getElementById('period_end_date').value = '';
-    document.getElementById('period_status').value = 'draft';
+    document.getElementById('period_status').value = 'closed';
     document.getElementById('period_notes').value = '';
     document.getElementById('periodSubmitBtn').textContent = 'Lưu kỳ tuyển dụng';
     const modeLabel = document.getElementById('periodFormModeLabel');
@@ -1239,7 +1306,7 @@ function startEditPeriodFromButton(button) {
     document.getElementById('period_name').value = button.dataset.name || '';
     document.getElementById('period_start_date').value = button.dataset.startDate || '';
     document.getElementById('period_end_date').value = button.dataset.endDate || '';
-    document.getElementById('period_status').value = button.dataset.status || 'draft';
+    document.getElementById('period_status').value = button.dataset.status || 'closed';
     document.getElementById('period_notes').value = button.dataset.notes || '';
     document.getElementById('periodSubmitBtn').textContent = 'Cập nhật kỳ tuyển dụng';
     const modeLabel = document.getElementById('periodFormModeLabel');
@@ -1319,6 +1386,96 @@ function startEditJobFromButton(button) {
 
 function cancelJobEdit() {
     startCreateJob();
+}
+
+function applyCandidateFilters() {
+    const keyword = normalizeText(document.getElementById('candidateSearchInput')?.value);
+    const status = normalizeText(document.getElementById('candidateStatusFilter')?.value);
+    const rows = Array.from(document.querySelectorAll('#candidatesTable tbody tr[data-row-type="candidate"]'));
+    const noResultRow = document.getElementById('candidateNoResultRow');
+
+    if (!rows.length) {
+        return;
+    }
+
+    let visibleCount = 0;
+
+    rows.forEach((row) => {
+        const searchBlob = row.dataset.candidateSearch || '';
+        const rowStatus = normalizeText(row.dataset.candidateStatus || '');
+        const matchKeyword = !keyword || searchBlob.includes(keyword);
+        const matchStatus = !status || rowStatus === status;
+        const isVisible = matchKeyword && matchStatus;
+
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) {
+            visibleCount++;
+        }
+    });
+
+    if (noResultRow) {
+        noResultRow.classList.toggle('hidden', visibleCount > 0);
+    }
+}
+
+function resetCandidateFilters() {
+    const searchInput = document.getElementById('candidateSearchInput');
+    const statusSelect = document.getElementById('candidateStatusFilter');
+
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    if (statusSelect) {
+        statusSelect.value = '';
+    }
+
+    applyCandidateFilters();
+}
+
+function applyInterviewFilters() {
+    const keyword = normalizeText(document.getElementById('interviewSearchInput')?.value);
+    const status = normalizeText(document.getElementById('interviewStatusFilter')?.value);
+    const rows = Array.from(document.querySelectorAll('#interviewsTable tbody tr[data-row-type="interview"]'));
+    const noResultRow = document.getElementById('interviewNoResultRow');
+
+    if (!rows.length) {
+        return;
+    }
+
+    let visibleCount = 0;
+
+    rows.forEach((row) => {
+        const searchBlob = row.dataset.interviewSearch || '';
+        const rowStatus = normalizeText(row.dataset.interviewStatus || '');
+        const matchKeyword = !keyword || searchBlob.includes(keyword);
+        const matchStatus = !status || rowStatus === status;
+        const isVisible = matchKeyword && matchStatus;
+
+        row.style.display = isVisible ? '' : 'none';
+        if (isVisible) {
+            visibleCount++;
+        }
+    });
+
+    if (noResultRow) {
+        noResultRow.classList.toggle('hidden', visibleCount > 0);
+    }
+}
+
+function resetInterviewFilters() {
+    const searchInput = document.getElementById('interviewSearchInput');
+    const statusSelect = document.getElementById('interviewStatusFilter');
+
+    if (searchInput) {
+        searchInput.value = '';
+    }
+
+    if (statusSelect) {
+        statusSelect.value = '';
+    }
+
+    applyInterviewFilters();
 }
 
 function resetCandidateForm() {
@@ -1453,6 +1610,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             document.getElementById('interview_candidate_name').value = option.dataset.name ?? '';
             document.getElementById('interview_candidate_phone').value = option.dataset.phone ?? '';
+        });
+    }
+
+    const candidateSearchInput = document.getElementById('candidateSearchInput');
+    if (candidateSearchInput) {
+        candidateSearchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyCandidateFilters();
+            }
+        });
+    }
+
+    const interviewSearchInput = document.getElementById('interviewSearchInput');
+    if (interviewSearchInput) {
+        interviewSearchInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                applyInterviewFilters();
+            }
         });
     }
 

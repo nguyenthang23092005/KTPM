@@ -40,9 +40,6 @@
                     @if($selectedPeriod)
                         <span class="text-xs px-3 py-1 rounded-full bg-purple-100 text-purple-700">
                             Đang xem: {{ $selectedPeriod->name }}
-                            @if(($selectedPeriod->status ?? null) === 'draft')
-                                - Nháp
-                            @endif
                         </span>
                     @endif
                 </div>
@@ -61,11 +58,6 @@
                             class="px-3 py-1.5 rounded-full text-sm border {{ $selectedPeriod && $selectedPeriod->period_id === $period->period_id ? 'bg-purple-600 border-purple-600 text-white' : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:text-purple-700' }}"
                         >
                             {{ $period->name }}
-                            @if(($period->status ?? null) === 'draft')
-                                <span class="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                    Nháp
-                                </span>
-                            @endif
                             <span class="ml-1 text-xs opacity-80">({{ $period->active_jobs_count ?? 0 }})</span>
                         </a>
                     @endforeach
@@ -91,11 +83,6 @@
                                 @if($supportsRecruitmentPeriods ?? false)
                                     <p class="text-sm text-purple-700 mt-1">
                                         Kỳ tuyển dụng: {{ $job->recruitmentPeriod?->name ?? 'Chưa gán kỳ' }}
-                                        @if(($job->recruitmentPeriod?->status ?? null) === 'draft')
-                                            <span class="ml-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">
-                                                Nháp
-                                            </span>
-                                        @endif
                                     </p>
                                 @endif
                             </div>

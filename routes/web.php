@@ -11,10 +11,13 @@ use App\Http\Controllers\admin\HiringController;
 use App\Http\Controllers\admin\StaffController;
 use App\Http\Controllers\admin\RecruitmentController;
 use App\Http\Controllers\NotificationController;
+use App\Notifications\NewCandidateApplicationNotification;
+use App\Support\CandidateBackup;
 use App\Models\Candidate;
 use App\Models\JobPosting;
 use App\Models\RecruitmentPeriod;
 use App\Models\User;
+use Illuminate\Support\Facades\Notification;
 
 // Static CSS route
 Route::get('/css/app.css', function () {
@@ -30,19 +33,13 @@ Route::get('/', function () {
 Route::get('/jobs', function () {
     $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
         && Schema::hasColumn('job_postings', 'recruitment_period_id');
-    $isAdminViewer = auth()->check() && auth()->user()->role === 'admin';
 
     $selectedPeriodId = trim((string) request()->query('period_id', ''));
     $periods = collect();
 
     if ($supportsRecruitmentPeriods) {
-        $periodsQuery = RecruitmentPeriod::query();
-
-        if (!$isAdminViewer) {
-            $periodsQuery->whereIn('status', ['open', 'closed']);
-        }
-
-        $periods = $periodsQuery
+        $periods = RecruitmentPeriod::query()
+            ->whereIn('status', ['open', 'closed'])
             ->withCount([
                 'jobPostings as active_jobs_count' => function ($query) {
                     $query->where('status', 'active');
@@ -70,15 +67,12 @@ Route::get('/jobs', function () {
 
     if ($supportsRecruitmentPeriods) {
         $jobsQuery->with('recruitmentPeriod');
-
-        if (!$isAdminViewer) {
-            $jobsQuery->where(function ($query) {
-                $query->whereNull('recruitment_period_id')
-                    ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
-                        $periodQuery->whereIn('status', ['open', 'closed']);
-                    });
-            });
-        }
+        $jobsQuery->where(function ($query) {
+            $query->whereNull('recruitment_period_id')
+                ->orWhereHas('recruitmentPeriod', function ($periodQuery) {
+                    $periodQuery->whereIn('status', ['open', 'closed']);
+                });
+        });
 
         if ($selectedPeriod) {
             $jobsQuery->where('recruitment_period_id', $selectedPeriod->period_id);
@@ -97,7 +91,6 @@ Route::get('/jobs', function () {
 Route::get('/jobs/{id}', function ($id) {
     $supportsRecruitmentPeriods = Schema::hasTable('recruitment_periods')
         && Schema::hasColumn('job_postings', 'recruitment_period_id');
-    $isAdminViewer = auth()->check() && auth()->user()->role === 'admin';
 
     $jobQuery = \App\Models\JobPosting::query();
 
@@ -106,16 +99,9 @@ Route::get('/jobs/{id}', function ($id) {
     }
 
     $job = $jobQuery->findOrFail($id);
-    $isRecruitmentPeriodDraft = false;
     $isRecruitmentPeriodClosed = false;
 
     if ($supportsRecruitmentPeriods && $job->recruitmentPeriod) {
-        $isRecruitmentPeriodDraft = $job->recruitmentPeriod->status === 'draft';
-
-        if ($isRecruitmentPeriodDraft && !$isAdminViewer) {
-            abort(404);
-        }
-
         $isRecruitmentPeriodClosed = $job->recruitmentPeriod->status === 'closed'
             || ($job->recruitmentPeriod->end_date && $job->recruitmentPeriod->end_date->isPast());
     }
@@ -143,7 +129,7 @@ Route::get('/jobs/{id}', function ($id) {
         }
     }
 
-    return view('jobs.show', compact('job', 'existingApplication', 'isRecruitmentPeriodClosed', 'isRecruitmentPeriodDraft'));
+    return view('jobs.show', compact('job', 'existingApplication', 'isRecruitmentPeriodClosed'));
 })->name('jobs.show');
 
 Route::post('/apply', function () {
@@ -162,12 +148,6 @@ Route::post('/apply', function () {
 
     if ($supportsRecruitmentPeriods) {
         $job->loadMissing('recruitmentPeriod');
-
-        if ($job->recruitmentPeriod && $job->recruitmentPeriod->status === 'draft') {
-            return back()
-                ->withErrors(['cv' => 'Kì tuyển dụng này chưa mở. Vui lòng quay lại sau.'])
-                ->withInput();
-        }
 
         $isRecruitmentPeriodClosed = $job->recruitmentPeriod
             && ($job->recruitmentPeriod->status === 'closed'
@@ -192,22 +172,6 @@ Route::post('/apply', function () {
             ->withInput();
     }
 
-    $uploadedCv = request()->file('cv');
-    $directory = 'candidates/US';
-    $nameSlug = Str::slug($validated['name'], '_');
-    $nameSlug = $nameSlug !== '' ? $nameSlug : 'ung_vien';
-    $baseName = 'CV_UV_' . $nameSlug;
-    $extension = strtolower($uploadedCv->getClientOriginalExtension() ?: 'pdf');
-    $fileName = $baseName . '.' . $extension;
-    $counter = 1;
-
-    while (Storage::disk('public')->exists($directory . '/' . $fileName)) {
-        $counter++;
-        $fileName = $baseName . '_' . $counter . '.' . $extension;
-    }
-
-    $cvPath = $uploadedCv->storeAs($directory, $fileName, 'public');
-
     $user = User::where('email', $validated['email'])->first();
     if (!$user) {
         do {
@@ -229,9 +193,26 @@ Route::post('/apply', function () {
         ]);
     }
 
+    $uploadedCv = request()->file('cv');
+    $safeCandidateId = preg_replace('/[^A-Za-z0-9_-]/', '_', $user->user_id);
+    $directory = 'candidates/' . ($safeCandidateId ?: 'unknown');
+    $nameSlug = Str::slug($validated['name'], '_');
+    $nameSlug = $nameSlug !== '' ? $nameSlug : 'ung_vien';
+    $baseName = 'cv_uv_' . $nameSlug;
+    $extension = strtolower($uploadedCv->getClientOriginalExtension() ?: 'pdf');
+    $fileName = $baseName . '.' . $extension;
+    $counter = 1;
+
+    while (Storage::disk('public')->exists($directory . '/' . $fileName)) {
+        $counter++;
+        $fileName = $baseName . '_' . $counter . '.' . $extension;
+    }
+
+    $cvPath = $uploadedCv->storeAs($directory, $fileName, 'public');
+
     $positionApplied = $job->title;
 
-    Candidate::updateOrCreate(
+    $candidate = Candidate::updateOrCreate(
         ['user_id' => $user->user_id],
         [
             'job_id' => $validated['job_id'],
@@ -241,6 +222,44 @@ Route::post('/apply', function () {
             'notes' => 'CV: ' . $cvPath,
         ]
     );
+
+    CandidateBackup::upsert($candidate->user_id, [
+        'user' => [
+            'user_id' => $user->user_id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'gender' => $user->gender,
+            'birth_date' => $user->birth_date,
+            'address' => $user->address,
+        ],
+        'candidate' => [
+            'job_id' => $candidate->job_id,
+            'position_applied' => $candidate->position_applied,
+            'status' => $candidate->status,
+            'experience' => $candidate->experience,
+            'education' => $candidate->education,
+            'notes' => $candidate->notes,
+            'applied_date' => $candidate->applied_date,
+        ],
+        'updated_at' => now()->toDateTimeString(),
+    ]);
+
+    $internalRecipients = User::query()
+        ->whereIn('role', ['admin', 'staff'])
+        ->get();
+
+    if ($internalRecipients->isNotEmpty()) {
+        Notification::send(
+            $internalRecipients,
+            new NewCandidateApplicationNotification(
+                $user->name,
+                $user->email,
+                $positionApplied,
+                (string) ($candidate->applied_date ?? now()->toDateString())
+            )
+        );
+    }
     
     return back()->with([
         'success' => 'Đã nộp đơn thành công. Chúng tôi sẽ liên hệ bạn sớm!',

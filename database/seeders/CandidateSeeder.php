@@ -4,7 +4,12 @@ namespace Database\Seeders;
 
 use App\Models\Candidate;
 use App\Models\JobPosting;
+use App\Models\User;
+use App\Support\CandidateBackup;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class CandidateSeeder extends Seeder
 {
@@ -128,6 +133,8 @@ class CandidateSeeder extends Seeder
         ];
 
         foreach ($candidates as $candidate) {
+            $storedCvPath = $this->findLatestCvPathByUserId($candidate['user_id']);
+
             Candidate::updateOrCreate(
                 ['user_id' => $candidate['user_id']],
                 [
@@ -136,10 +143,115 @@ class CandidateSeeder extends Seeder
                     'status' => $candidate['status'],
                     'experience' => $candidate['experience'],
                     'education' => $candidate['education'],
-                    'notes' => $candidate['notes'],
+                    'notes' => $storedCvPath ? ('CV: ' . $storedCvPath) : $candidate['notes'],
                     'applied_date' => now()->subDays(rand(1, 15))->toDateString(),
                 ]
             );
         }
+
+        $this->restoreFromBackup($jobIdsByTitle->toArray());
+    }
+
+    private function restoreFromBackup(array $jobIdsByTitle): void
+    {
+        $records = CandidateBackup::all();
+
+        if (empty($records)) {
+            return;
+        }
+
+        foreach ($records as $userId => $record) {
+            if (!is_array($record)) {
+                continue;
+            }
+
+            $userData = $record['user'] ?? [];
+            $candidateData = $record['candidate'] ?? [];
+
+            $backupUserId = trim((string) ($userData['user_id'] ?? $userId));
+            $backupEmail = trim((string) ($userData['email'] ?? ''));
+
+            if ($backupUserId === '' || $backupEmail === '') {
+                continue;
+            }
+
+            $user = User::where('user_id', $backupUserId)->first();
+            if (!$user) {
+                $user = User::where('email', $backupEmail)->first();
+            }
+
+            if (!$user) {
+                $user = User::create([
+                    'user_id' => $backupUserId,
+                    'name' => $userData['name'] ?? 'Ứng viên',
+                    'email' => $backupEmail,
+                    'password' => Hash::make(Str::random(16)),
+                    'role' => 'user',
+                    'gender' => $userData['gender'] ?? null,
+                    'phone' => $userData['phone'] ?? null,
+                    'birth_date' => $userData['birth_date'] ?? null,
+                    'address' => $userData['address'] ?? null,
+                ]);
+            } else {
+                $user->update([
+                    'name' => $userData['name'] ?? $user->name,
+                    'email' => $backupEmail,
+                    'role' => 'user',
+                    'gender' => $userData['gender'] ?? $user->gender,
+                    'phone' => $userData['phone'] ?? $user->phone,
+                    'birth_date' => $userData['birth_date'] ?? $user->birth_date,
+                    'address' => $userData['address'] ?? $user->address,
+                ]);
+            }
+
+            $jobId = $candidateData['job_id'] ?? null;
+            if (!empty($jobId) && !JobPosting::where('job_id', $jobId)->exists()) {
+                $jobId = null;
+            }
+
+            $positionApplied = $candidateData['position_applied'] ?? null;
+            if (empty($jobId) && !empty($positionApplied) && isset($jobIdsByTitle[$positionApplied])) {
+                $jobId = $jobIdsByTitle[$positionApplied];
+            }
+
+            $storedCvPath = $this->findLatestCvPathByUserId($user->user_id);
+            $notes = $candidateData['notes'] ?? null;
+            if ($storedCvPath) {
+                $notes = 'CV: ' . $storedCvPath;
+            }
+
+            Candidate::updateOrCreate(
+                ['user_id' => $user->user_id],
+                [
+                    'job_id' => $jobId,
+                    'position_applied' => $positionApplied,
+                    'status' => $candidateData['status'] ?? 'Đang chờ',
+                    'experience' => $candidateData['experience'] ?? null,
+                    'education' => $candidateData['education'] ?? null,
+                    'notes' => $notes,
+                    'applied_date' => $candidateData['applied_date'] ?? now()->toDateString(),
+                ]
+            );
+        }
+    }
+
+    private function findLatestCvPathByUserId(string $userId): ?string
+    {
+        $directory = 'candidates/' . $userId;
+
+        if (!Storage::disk('public')->exists($directory)) {
+            return null;
+        }
+
+        $files = Storage::disk('public')->files($directory);
+        if (empty($files)) {
+            return null;
+        }
+
+        usort($files, function (string $a, string $b): int {
+            return Storage::disk('public')->lastModified($b) <=> Storage::disk('public')->lastModified($a);
+        });
+
+        return $files[0] ?? null;
     }
 }

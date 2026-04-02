@@ -16,9 +16,11 @@ class DatabaseSeeder extends Seeder
             DepartmentSeeder::class,
             EmployeeSeeder::class,
             DepartmentManagerSeeder::class,
+            RecruitmentPeriodSeeder::class,
             JobPostingSeeder::class,
             CandidateSeeder::class,
             InterviewSeeder::class,
+            NotificationSeeder::class,
         ]);
     }
 }

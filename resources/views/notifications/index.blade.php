@@ -98,6 +98,22 @@
                                         <i class="far fa-calendar"></i>
                                         {{ $notification->created_at->format('d/m/Y H:i') }}
                                     </p>
+                                @elseif($notification->type === 'App\\Notifications\\NewCandidateApplicationNotification')
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <i class="fas fa-user-plus text-indigo-600 text-lg"></i>
+                                        @if(!$notification->read_at)
+                                            <span class="inline-block px-2 py-1 bg-purple-600 text-white text-xs rounded font-bold">MỚI</span>
+                                        @endif
+                                    </div>
+                                    <h3 class="text-lg font-bold mb-2">Ứng viên nộp hồ sơ mới</h3>
+                                    <p class="text-gray-700 mb-2">{{ $notification->data['message'] ?? '' }}</p>
+                                    @if(!empty($notification->data['applied_at']))
+                                        <p class="text-xs text-gray-500 mb-2">Ngày nộp hồ sơ: {{ $notification->data['applied_at'] }}</p>
+                                    @endif
+                                    <p class="text-sm text-gray-500">
+                                        <i class="far fa-calendar"></i>
+                                        {{ $notification->created_at->format('d/m/Y H:i') }}
+                                    </p>
                                 @else
                                     <h3 class="text-lg font-bold mb-2">{{ $notification->data['message'] ?? 'Thông báo' }}</h3>
                                     <p class="text-sm text-gray-500">
