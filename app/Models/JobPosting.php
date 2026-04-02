@@ -34,7 +34,7 @@ class JobPosting extends Model
     }
 
     protected $fillable = [
-        'job_id', 'recruitment_period_id',  'title', 'department', 'salary_min', 'salary_max', 'quantity',
+        'job_id', 'recruitment_period_id',  'title', 'department', 'location', 'salary_min', 'salary_max', 'quantity',
         'description', 'requirements', 'deadline', 'status', 'is_deleted'
     ];
 

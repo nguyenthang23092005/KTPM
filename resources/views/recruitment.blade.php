@@ -537,6 +537,7 @@
                                     <th class="px-4 py-2 text-left">Mã tin</th>
                                     <th class="px-4 py-2 text-left">Tiêu đề</th>
                                     <th class="px-4 py-2 text-left">Phòng ban</th>
+                                    <th class="px-4 py-2 text-left">Địa điểm</th>
                                     <th class="px-4 py-2 text-left">Mức lương</th>
                                     <th class="px-4 py-2 text-left">Số lượng</th>
                                     <th class="px-4 py-2 text-left">Hạn nộp</th>
@@ -560,6 +561,7 @@
                                         <td class="px-4 py-2 font-medium">{{ $job->job_id }}</td>
                                         <td class="px-4 py-2">{{ $job->title }}</td>
                                         <td class="px-4 py-2">{{ $job->department ?? '-' }}</td>
+                                        <td class="px-4 py-2">{{ $job->location ?? '-' }}</td>
                                         <td class="px-4 py-2">{{ number_format($job->salary_min) }} - {{ number_format($job->salary_max) }}đ</td>
                                         <td class="px-4 py-2">{{ $job->quantity }}</td>
                                         <td class="px-4 py-2">{{ $job->deadline?->format('d/m/Y') ?? '-' }}</td>
@@ -598,6 +600,7 @@
                                                                 data-period-id="{{ $job->recruitment_period_id }}"
                                                                 data-title="{{ e($job->title) }}"
                                                                 data-department="{{ $job->department }}"
+                                                                data-location="{{ $job->location }}"
                                                                 data-salary-min="{{ (int) $job->salary_min }}"
                                                                 data-salary-max="{{ (int) $job->salary_max }}"
                                                                 data-quantity="{{ $job->quantity }}"
@@ -628,7 +631,7 @@
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 8 : 7 }}" class="px-4 py-6 text-center text-gray-500">
+                                        <td colspan="{{ auth()->check() && (auth()->user()->role === 'admin' || $isDepartmentManager) ? 9 : 8 }}" class="px-4 py-6 text-center text-gray-500">
                                             Chưa có tin tuyển dụng phù hợp bộ lọc.
                                         </td>
                                     </tr>
@@ -702,6 +705,10 @@
                                         <option value="filled">Đã tuyển đủ</option>
                                         <option value="closed">Đã đóng</option>
                                     </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Địa điểm</label>
+                                    <input id="job_location" name="location" type="text" class="w-full p-2 border border-gray-300 rounded" required>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Mức lương từ</label>
@@ -1266,6 +1273,7 @@ function startCreateJob() {
     }
 
     document.getElementById('job_title').value = '';
+    document.getElementById('job_location').value = '';
     document.getElementById('job_salary_min').value = '';
     document.getElementById('job_salary_max').value = '';
     document.getElementById('job_quantity').value = '';
@@ -1297,6 +1305,7 @@ function startEditJobFromButton(button) {
     }
 
     document.getElementById('job_title').value = button.dataset.title || '';
+    document.getElementById('job_location').value = button.dataset.location || '';
     document.getElementById('job_salary_min').value = button.dataset.salaryMin || '';
     document.getElementById('job_salary_max').value = button.dataset.salaryMax || '';
     document.getElementById('job_quantity').value = button.dataset.quantity || '';

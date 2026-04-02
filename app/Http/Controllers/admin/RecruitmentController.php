@@ -594,6 +594,7 @@ class RecruitmentController extends Controller
             'recruitment_period_id' => $periodValidationRules,
             'title' => 'required|string|max:255',
             'department' => 'required|string|max:255',
+            'location' => 'required|string|max:255',
             'salary_min' => 'required|integer|min:0',
             'salary_max' => 'required|integer|gte:salary_min|min:0',
             'quantity' => 'required|integer',
@@ -675,6 +676,7 @@ class RecruitmentController extends Controller
             'recruitment_period_id' => $periodValidationRules,
             'title' => 'sometimes|required|string|max:255',
             'department' => 'required|string|max:255',
+            'location' => 'required|string|max:255',
             'salary_min' => 'sometimes|required|integer|min:0',
             'salary_max' => 'sometimes|required|integer|min:0',
             'quantity' => 'sometimes|required|integer',
@@ -732,6 +734,7 @@ class RecruitmentController extends Controller
             'deadline' => $validated['deadline'] ?? $job->deadline,
             'status' => $statusMap[$validated['status']] ?? $validated['status'],
             'department' => $validated['department'] ?? $job->department,
+            'location' => $validated['location'] ?? $job->location,
         ]);
 
         return redirect()->route(
